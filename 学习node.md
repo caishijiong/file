@@ -2668,6 +2668,10 @@ app.listen(3000, () => {
 
 发现是有报错的 根据同源策略我们看到`协议一样，域名一样，但是端口不一致`，端口也无法一致，会有冲突，否则就是前后端不分离的项目，前后端代码放在一起，只用一个端口，不过我们是分离的没法这么做。
 
+```sh
+npm install nodemon
+```
+
 这时候我们就需要后端支持一下，跨域请求资源放行
 
 ```js
@@ -2678,6 +2682,7 @@ Access-Control-Allow-Origin: * | Origin
 
 ```js
 app.use('*',(req,res,next)=>{
+     //*  允许所有资源访问
     res.setHeader('Access-Control-Allow-Origin','http://localhost:5500') //允许localhost 5500 访问
     next()
 })
@@ -2709,7 +2714,7 @@ app.use('*',(req,res,next)=>{
 
 ### 请求方法支持
 
-我们服务端默认只支持 GET POST HEAD OPTIONS 请求
+**我们服务端默认只支持 GET POST HEAD OPTIONS 请求**
 
 例如我们遵循restFui 要支持`PATCH` 或者其他请求
 
