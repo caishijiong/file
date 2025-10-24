@@ -2893,46 +2893,55 @@ import mysql2 from 'mysql2/promise'
 import fs from 'node:fs'
 import jsyaml from 'js-yaml'
 import express from 'express'
+
 const yaml = fs.readFileSync('./db.config.yaml', 'utf8')
 const config = jsyaml.load(yaml)
 const sql = await mysql2.createConnection({
-   ...config.db
+  ...config.db,
 })
 const app = express()
+
 app.use(express.json())
+
 //查询接口 全部
-app.get('/',async (req,res)=>{
-   const [data] = await sql.query('select * from user')
-   res.send(data)
+app.get('/', async (req, res) => {
+  const [data] = await sql.query('select * from user')
+  res.send(data)
 })
+
 //单个查询 params
-app.get('/user/:id',async (req,res)=>{
-    const [row] = await sql.query(`select * from user where id = ?`,[req.params.id])
-    res.send(row)
+app.get('/user/:id', async (req, res) => {
+  const [row] = await sql.query(`select * from user where id = ?`, [req.params.id])
+  res.send(row)
 })
 
 //新增接口
-app.post('/create',async (req,res)=>{
-    const {name,age,hobby} = req.body
-    await sql.query(`insert into user(name,age,hobby) values(?,?,?)`,[name,age,hobby])
-    res.send({ok:1})
+app.post('/create', async (req, res) => {
+  const { name, age, address } = req.body
+  await sql.query(`insert into user(name,age,address,create_time) values(?,?,?,NOW())`, [
+    name,
+    age,
+    address
+  ])
+  res.send({ ok: 1 })
 })
 
 //编辑
-app.post('/update',async (req,res)=>{
-    const {name,age,hobby,id} = req.body
-    await sql.query(`update user set name = ?,age = ?,hobby = ? where id = ?`,[name,age,hobby,id])
-    res.send({ok:1})
+app.post('/update', async (req, res) => {
+  const { name, age, address, id } = req.body
+  await sql.query(`update user set name = ?,age = ?,address = ? where id = ?`, [name, age, address, id])
+  res.send({ ok: 1 })
 })
+
 //删除
-app.post('/delete',async (req,res)=>{
-    await sql.query(`delete from user where id = ?`,[req.body.id])
-    res.send({ok:1})
+app.post('/delete', async (req, res) => {
+  await sql.query(`delete from user where id = ?`, [req.body.id])
+  res.send({ ok: 1 })
 })
 const port = 3000
 
 app.listen(port, () => {
-   console.log(`Example app listening on port ${port}`)
+  console.log(`Example app listening on port ${port}`)
 })
 ```
 
@@ -2953,7 +2962,8 @@ Content-Type: application/json
 
 {
     "name":"张三",
-    "age":18
+    "age":18,
+    "address":"北京"
 }
 
 # 更新数据
@@ -2963,7 +2973,7 @@ Content-Type: application/json
 {
     "name":"法外狂徒",
     "age":20,
-    "id":23
+    "id":11
 }
 
 
@@ -2972,7 +2982,162 @@ Content-Type: application/json
 # Content-Type: application/json
 
 # {
-#     "id":24
+#     "id":11
 # }
+```
+
+## knex
+
+Knex是一个基于JavaScript的`查询生成器`，它允许你使用JavaScript代码来生成和执行SQL查询语句。它提供了一种简单和直观的方式来与关系型数据库进行交互，而无需直接编写SQL语句。你可以使用Knex定义表结构、执行查询、插入、更新和删除数据等操作。
+
+### Knex的安装和设置
+
+> knex支持多种数据库 pg sqlite3 mysql2 oracledb tedious
+
+用什么数据库安装对应的数据库就行了
+
+```sh
+#安装knex
+$ npm install knex --save
+
+#安装你用的数据库
+$ npm install pg
+$ npm install pg-native
+$ npm install sqlite3
+$ npm install better-sqlite3
+$ npm install mysql
+$ npm install mysql2
+$ npm install oracledb
+$ npm install tedious
+```
+
+连接数据库
+
+```js
+import knex from 'knex'
+const db = knex({
+    client: "mysql2",
+    connection: config.db
+})
+```
+
+```yaml
+db:
+   host: localhost #主机
+   port: 3306 #端口
+   user: root #账号
+   password: '1234' #密码 一定要字符串
+   database: test # 库
+```
+
+### 定义表结构
+
+```js
+db.schema.createTableIfNotExists('list', table => {
+  table.increments('id') //id自增
+  table.integer('age') //age 整数
+  table.string('name') //name 字符串
+  table.string('hobby') //hobby 字符串
+  table.timestamps(true, true) //创建时间和更新时间
+}).then(() => {
+    console.log('创建成功')
+})
+```
+
+### 实现增删改查
+
+```js
+import mysql2 from 'mysql2/promise'
+import fs from 'node:fs'
+import jsyaml from 'js-yaml'
+import express from 'express'
+import knex from 'knex'
+const yaml = fs.readFileSync('./db.config.yaml', 'utf8')
+const config = jsyaml.load(yaml)
+// const sql = await mysql2.createConnection({
+//    ...config.db
+// })
+const db = knex({
+    client: "mysql2",
+    connection: config.db
+})
+
+const app = express()
+app.use(express.json())
+//查询接口 全部
+app.get('/', async (req, res) => {
+    const data = await db('list').select().orderBy('id', 'desc')
+    const total = await db('list').count('* as total')
+    res.json({
+        code: 200,
+        data,
+        total: total[0].total,
+    })
+})
+//单个查询 params
+app.get('/user/:id', async (req, res) => {
+    const row = await db('list').select().where({ id: req.params.id })
+    res.json({
+        code: 200,
+        data: row
+    })
+})
+
+//新增接口
+app.post('/create', async (req, res) => {
+    const { name, age, hobby } = req.body
+    const detail = await db('list').insert({ name, age, hobby })
+    res.send({
+        code: 200,
+        data: detail
+    })
+})
+
+//编辑
+app.post('/update', async (req, res) => {
+    const { name, age, hobby, id } = req.body
+    const info = await db('list').update({ name, age, hobby }).where({ id })
+    res.json({
+        code: 200,
+        data: info
+    })
+})
+//删除
+app.post('/delete', async (req, res) => {
+    const info = await db('list').delete().where({ id: req.body.id })
+    res.json({
+        code: 200,
+        data: info
+    })
+})
+const port = 3000
+
+app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`)
+})
+```
+
+### 事务
+
+你可以使用事务来确保一组数据库操作的原子性，即要么全部成功提交，要么全部回滚
+
+例如A给B转钱，需要两条语句，如果A语句成功了，B语句因为一些场景失败了，那这钱就丢了，所以事务就是为了解决这个问题，要么都成功，要么都回滚，保证金钱不会丢失。
+
+```js
+//伪代码
+db.transaction(async (trx) => {
+    try {
+        await trx('list').update({money: -100}).where({ id: 1 }) //A
+        await trx('list').update({money: +100}).where({ id: 2 }) //B
+        await trx.commit() //提交事务
+    }
+    catch (err) {
+        await trx.rollback() //回滚事务
+    }
+}).then(()=>{
+    console.log('成功')
+}).catch(()=>{
+    console.log('失败')
+})
 ```
 
