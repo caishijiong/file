@@ -1,167 +1,5 @@
 # 学习node
 
-## 响应式打开组件的方法
-
-```html
-<el-button @click="OpenDetails(scope.row)" type="text" size="small">详情</el-button>
-<el-button @click="OpenRating(scope.row)" type="text" size="small">评级</el-button>
-
-// 这里是组件
-<Details v-model="isDetailsOpen" :row="selectedRow"></Details>
-<Rating @success="getTableData" v-model="isRatingOpen" :row="selectedRow"></Rating>
-
-// 赋值
-data() {
-	return {
-		selectedRow: {},
-		isDetailsOpen: false,
-		isResignOpen: false,
-	}
-}
-
-// 打开的方法
-OpenDetails(row) {
-			this.selectedRow = row
-			this.isDetailsOpen = true
-		},
-
-OpenResign(row) {
-			this.selectedRow = row
-			this.isResignOpen = true
-		},
-
-// 组件内容
-<template>
-	<div>
-		<el-drawer title="个人详情" :visible.sync="drawer" :before-close="handleClose" append-to-body size="100%">
-			<FormDetails :tableData="tableData"></FormDetails>
-		</el-drawer>
-	</div>
-</template>
-
-<script>
-import FormDetails from './FormDetails'
-export default {
-	model: {
-		prop: 'state',
-		event: 'change'
-	},
-	props: {
-		state: {
-			type: Boolean,
-			default: false
-		},
-		row: {
-			type: Object,
-			default: () => ({})
-		}
-	},
-	data() {
-		return {
-			drawer: false,
-		}
-	},
-	watch: {
-		state: {
-			immediate: true,
-			handler(val) {
-				this.drawer = val
-				if (val) {
-					this.getTableData()
-				}
-			}
-		},
-		drawer: {
-			handler(val) {
-				this.$emit('change', val)
-			}
-		}
-	}
-}
-</script>
-
-<template>
-	<div>
-		<el-dialog title="离职" :visible.sync="dialog" width="30%" :before-close="handleClose" append-to-body>
-			<el-form :model="item" label-width="60px" class="flex-center">
-				<el-form-item label="备注" class="w100p">
-					<el-input type="textarea" v-model="item.remark" class="w100p" />
-				</el-form-item>
-			</el-form>
-			<span slot="footer" class="flex-center">
-				<el-button @click="close()">取 消</el-button>
-				<el-button type="primary" @click="submit()">确 定</el-button>
-			</span>
-		</el-dialog>
-	</div>
-</template>
-
-<script>
-export default {
-	model: {
-		prop: 'state',
-		event: 'change'
-	},
-	props: {
-		state: {
-			type: Boolean,
-			default: false
-		},
-		row: {
-			type: Object,
-			default: () => ({})
-		}
-	},
-	data() {
-		return {
-			dialog: false,
-			item: {
-				remark: ''
-			}
-		}
-	},
-	watch: {
-		state: {
-			immediate: true,
-			handler(val) {
-				this.dialog = val
-				if (val) {
-					this.init()
-				}
-			}
-		},
-		dialog: {
-			handler(val) {
-				this.$emit('change', val)
-			}
-		}
-	}
-}
-</script>
-```
-
-## fetch请求
-
-```js
-async es() {
-			try {
-                // 请求地址, 请求方法
-				const response = await fetch('http://127.0.0.1:57598/ReaderTool/CPU_ReadCardNumber', { method: 'GET' })
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status}:${response.statusText}`)
-				}
-				const result = await response.json()
-				
-                console.log('完整响应:', result)
-                
-				this.IdCard = result.data
-                
-			} catch (error) {
-				this.$message.error('请检查设备是否接入,程序是否启动')
-			}
-		}
-```
-
 ## Nood.js
 
 ### 一些命令
@@ -3138,6 +2976,181 @@ db.transaction(async (trx) => {
     console.log('成功')
 }).catch(()=>{
     console.log('失败')
+})
+```
+
+## prisma
+
+Prisma 是一个现代化的数据库工具套件，用于简化和改进应用程序与数据库之间的交互。它提供了一个类型安全的查询构建器和一个强大的 ORM（对象关系映射）层，使开发人员能够以声明性的方式操作数据库。
+
+Prisma 支持多种主流数据库，包括 PostgreSQL、MySQL 和 SQLite，它通过生成标准的数据库模型来与这些数据库进行交互。使用 Prisma，开发人员可以定义数据库模型并生成类型安全的查询构建器，这些构建器提供了一套直观的方法来创建、更新、删除和查询数据库中的数据。
+
+Prisma 的主要特点包括：
+
+1. 类型安全的查询构建器：Prisma 使用强类型语言（如 TypeScript）生成查询构建器，从而提供了在编译时捕获错误和类型检查的能力。这有助于减少错误，并提供更好的开发人员体验。
+2. 强大的 ORM 层：Prisma 提供了一个功能强大的 ORM 层，使开发人员能够以面向对象的方式操作数据库。它自动生成了数据库模型的 CRUD（创建、读取、更新、删除）方法，简化了与数据库的交互。
+3. 数据库迁移：Prisma 提供了数据库迁移工具，可帮助开发人员管理数据库模式的变更。它可以自动创建和应用迁移脚本，使数据库的演进过程更加简单和可控。
+4. 性能优化：Prisma 使用先进的查询引擎和数据加载技术，以提高数据库访问的性能。它支持高级查询功能，如关联查询和聚合查询，并自动优化查询以提供最佳的性能
+
+文件路径只需这样
+
+```Text
+文件名
+├── .env
+└── prisma/
+```
+
+### 安装使用
+
+安装 Prisma CLI：
+
+- 使用 npm 安装：运行 `npm install -g prisma`。
+- 使用 yarn 安装：运行 `yarn global add prisma`。
+- 查看命令  `prisma init -h`
+
+初始化项目
+
+- 使用`prisma init --datasource-provider mysql`
+
+连接mysql
+
+- 修改.env文件 `[DATABASE_URL="mysql://账号:密码@主机:端口/库名"]`
+- 例子 `DATABASE_URL="mysql://root:123456@localhost:3306/xiaoman"`
+
+#### 创建表
+
+在prisma/schema.prisma文件下写入下面
+
+```js
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+//编写表结构
+
+// 文章表
+model Post {
+  id       Int     @id @default(autoincrement()) //id 整数 自增
+  title    String //title字符串类型
+  publish  Boolean @default(false) //发布 布尔值默认false
+  author   User    @relation(fields: [authorId], references: [id]) //作者 关联用户表 关联关系 authorId 关联user表的id
+  authorId Int
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  name  String
+  email String @unique
+  posts Post[]
+}
+```
+
+执行命令 创建表
+
+> 用此命令一定要注意是否覆盖当前库里面的所有内容，建议使用新库去做测试
+
+```sh
+prisma migrate dev
+```
+
+### 实现增删改查
+
+```sh
+npm i express
+
+npm i --save-dev @types/express
+
+npm install --save-dev tsx
+```
+
+
+
+```ts
+import express from 'express'
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
+const app = express()
+const port: number = 3000
+
+
+app.use(express.json())
+
+//关联查找
+app.get('/', async (req, res) => {
+    const data = await prisma.user.findMany({
+        include: {
+            posts: true
+        }
+    })
+    res.send(data)
+})
+//单个查找
+app.get('/user/:id', async (req, res) => {
+   const row =  await prisma.user.findMany({
+        where: {
+            id: Number(req.params.id)
+        }
+    })
+    res.send(row)
+})
+//新增
+app.post('/create', async (req, res) => {
+    const { name, email } = req.body
+    const data = await prisma.user.create({
+        data: {
+            name,
+            email,
+            posts: {
+                create: {
+                    title: '标题',
+                    publish: true
+                },
+            }
+        }
+    })
+    res.send(data)
+})
+
+//更新
+app.post('/update', async (req, res) => {
+    const { id, name, email } = req.body
+    const data = await prisma.user.update({
+        where: {
+            id: Number(id)
+        },
+        data: {
+            name,
+            email
+        }
+    })
+    res.send(data)
+})
+
+//删除
+app.post('/delete', async (req, res) => {
+    const { id } = req.body
+    await prisma.post.deleteMany({
+        where: {
+            authorId: Number(id)
+        }
+    })
+    const data = await prisma.user.delete({
+        where: {
+            id: Number(id),
+        },
+    })
+    res.send(data)
+})
+
+
+app.listen(port, () => {
+    console.log(`App listening on port ${port}`)
 })
 ```
 
