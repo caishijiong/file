@@ -3022,7 +3022,6 @@ Prisma 的主要特点包括：
 在prisma/schema.prisma文件下写入下面
 
 ```js
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -3038,6 +3037,7 @@ datasource db {
 model Post {
   id       Int     @id @default(autoincrement()) //id 整数 自增
   title    String //title字符串类型
+  content  String //content字符串类型
   publish  Boolean @default(false) //发布 布尔值默认false
   author   User    @relation(fields: [authorId], references: [id]) //作者 关联用户表 关联关系 authorId 关联user表的id
   authorId Int
@@ -3109,6 +3109,7 @@ app.post('/create', async (req, res) => {
             posts: {
                 create: {
                     title: '标题',
+                    content: '内容',
                     publish: true
                 },
             }
@@ -3152,5 +3153,605 @@ app.post('/delete', async (req, res) => {
 app.listen(port, () => {
     console.log(`App listening on port ${port}`)
 })
+```
+
+## 项目架构MVC,IoC,DI
+
+### MVC
+
+MVC（Model-View-Controller）是一种常用的软件架构模式，用于设计和组织应用程序的代码。它将应用程序分为三个主要组件：模型（Model）、视图（View）和控制器（Controller），各自负责不同的职责。
+
+1. 模型（Model）：模型表示应用程序的数据和业务逻辑。它负责处理数据的存储、检索、验证和更新等操作。模型通常包含与数据库、文件系统或外部服务进行交互的代码。
+2. 视图（View）：视图负责将模型的数据以可视化的形式呈现给用户。它负责用户界面的展示，包括各种图形元素、页面布局和用户交互组件等。视图通常是根据模型的状态来动态生成和更新的。
+3. 控制器（Controller）：控制器充当模型和视图之间的中间人，负责协调两者之间的交互。它接收用户输入（例如按钮点击、表单提交等），并根据输入更新模型的状态或调用相应的模型方法。控制器还可以根据模型的变化来更新视图的显示。
+
+MVC 的主要目标是将应用程序的逻辑、数据和界面分离，以提高代码的可维护性、可扩展性和可重用性。通过将不同的职责分配给不同的组件，MVC 提供了一种清晰的结构，使开发人员能够更好地管理和修改应用程序的各个部分。
+
+### IoC控制反转和DI依赖注入
+
+控制反转（Inversion of Control，IoC）和依赖注入（Dependency Injection，DI）是软件开发中常用的设计模式和技术，用于解耦和管理组件之间的依赖关系。虽然它们经常一起使用，但它们是不同的概念。
+
+1. 控制反转（IoC）是一种设计原则，它将组件的控制权从组件自身转移到外部容器。传统上，组件负责自己的创建和管理，而控制反转则将这个责任转给了一个外部的容器或框架。容器负责创建组件实例并管理它们的生命周期，组件只需声明自己所需的依赖关系，并通过容器获取这些依赖。这种反转的控制权使得组件更加松耦合、可测试和可维护。
+2. 依赖注入（DI）是实现控制反转的一种具体技术。它通过将组件的依赖关系从组件内部移动到外部容器来实现松耦合。组件不再负责创建或管理它所依赖的其他组件，而是通过构造函数、属性或方法参数等方式将依赖关系注入到组件中。依赖注入可以通过构造函数注入（Constructor Injection）、属性注入（Property Injection）或方法注入（Method Injection）等方式实现。
+
+**安装依赖**
+
+1. `inversify` + `reflect-metadata` 实现依赖注入 [官网](https://link.juejin.cn?target=https%3A%2F%2Fdoc.inversify.cloud%2Fzh_cn%2Finstallation)
+2. 接口编写`express` [官网](https://link.juejin.cn?target=https%3A%2F%2Fwww.expressjs.com.cn%2F)
+3. 连接工具 `inversify-express-utils` [文档](https://link.juejin.cn?target=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Finversify-express-utils)
+4. orm框架 `prisma` [官网](https://link.juejin.cn?target=https%3A%2F%2Fwww.prisma.io%2F)
+5. dto `class-validator` + `class-transformer` [文档](https://link.juejin.cn?target=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Fclass-validator)
+
+
+
+```sh
+# 依赖注入框架
+npm install inversify reflect-metadata
+
+# Express 框架
+npm install express
+
+# Inversify 与 Express 集成
+npm install inversify-express-utils
+
+# Prisma ORM
+npm install @prisma/client
+npm install prisma --save-dev
+
+# DTO 验证和转换
+npm install class-validator class-transformer
+
+# 类型定义（如果使用 TypeScript）
+npm install @types/node @types/express --save-dev
+```
+
+安装prisma操作
+
+目录结构
+
+- /prisma
+  - /schema.prisma
+- /src
+  - /user
+    - /controller.ts
+    - /service.ts
+    - /user.dto.ts
+  - /post
+    - /controller.ts
+    - /service.ts
+    - /post.dto.ts
+  - /db
+    - /index.ts
+- main.ts
+- .env
+- tsconfig.json
+- package.json
+- README.md
+
+### 代码部分
+
+package.json
+
+```json
+{
+  "name": "app",
+  "version": "1.0.0",
+  "main": "main.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --exec tsx main.ts"
+  }, 
+}  
+```
+
+main.ts
+
+```ts
+import 'reflect-metadata'
+import { InversifyExpressServer } from 'inversify-express-utils'
+import { Container } from 'inversify'
+import { UserController } from './src/user/controller'
+import { UserService } from './src/user/service'
+import express from 'express'
+import { PrismaClient } from '@prisma/client'
+import { PrismaDB } from './src/db'
+const container = new Container() //Ioc搞个容器
+/**
+ * prisma依赖注入
+ */
+ //注入工厂封装db
+container.bind<PrismaClient>('PrismaClient').toFactory(()=>{
+    return () => {
+        return new PrismaClient()
+    }
+})
+container.bind(PrismaDB).toSelf()
+/**
+ * user模块
+ */
+container.bind(UserService).to(UserService) //添加到容器
+container.bind(UserController).to(UserController) //添加到容器
+/**
+ * post模块
+ */
+const server = new InversifyExpressServer(container) //返回server
+//中间件编写在这儿
+server.setConfig(app => {
+    app.use(express.json()) //接受json
+})
+const app = server.build() //app就是express
+
+app.listen(3000, () => {
+    console.log('http://localhost:3000')
+})
+```
+
+
+
+src/user/controller.ts
+
+```sh
+#生成一个ts的配置文件
+tsc --init
+```
+
+```ts
+import { controller, httpGet as GetMapping, httpPost as PostMapping } from 'inversify-express-utils'
+import { inject } from 'inversify'
+import { UserService } from './service'
+import type { Request, Response } from 'express'
+@controller('/user') //路由
+export class UserController {
+
+    constructor(
+        @inject(UserService) private readonly userService: UserService, //依赖注入
+    ) { }
+
+    @GetMapping('/index') //get请求
+    public async getIndex(req: Request, res: Response) {
+        console.log(req?.user.id)
+        const info = await this.userService.getUserInfo()
+        res.send(info)
+    }
+
+    @PostMapping('/create') //post请求
+    public async createUser(req: Request, res: Response) {
+        const user = await this.userService.createUser(req.body)
+        res.send(user)
+    }
+}
+```
+
+
+
+src/user/service.ts
+
+```ts
+import { injectable, inject } from 'inversify'
+import { UserDto } from './user.dto'
+import { plainToClass } from 'class-transformer' //dto验证
+import { validate } from 'class-validator' //dto验证
+import { PrismaDB } from '../db'
+@injectable()
+export class UserService {
+
+    constructor(
+        @inject(PrismaDB) private readonly PrismaDB: PrismaDB //依赖注入
+    ) {
+
+    }
+
+    public async getUserInfo() {
+        return await this.PrismaDB.prisma.user.findMany()
+    }
+
+    public async createUser(data: UserDto) {
+        const user = plainToClass(UserDto, data)
+        const errors = await validate(user)
+        const dto = []
+        if (errors.length) {
+            errors.forEach(error => {
+                Object.keys(error.constraints).forEach(key => {
+                    dto.push({
+                        [error.property]: error.constraints[key]
+                    })
+                })
+            })
+            return dto
+        } else {
+            const userInfo =  await this.PrismaDB.prisma.user.create({ data: user })
+            return userInfo
+        }
+    }
+}
+```
+
+
+
+src/user/user.dto.ts
+
+```ts
+import { IsNotEmpty, IsEmail } from 'class-validator'
+import { Transform } from 'class-transformer'
+export class UserDto {
+    @IsNotEmpty({ message: '用户名必填' })
+    @Transform(user => user.value.trim())
+    name: string
+
+    @IsNotEmpty({ message: '邮箱必填' })
+    @IsEmail({},{message: '邮箱格式不正确'})
+    @Transform(user => user.value.trim())
+    email: string
+}
+```
+
+
+
+src/db/index.ts
+
+```ts
+import { injectable, inject } from 'inversify'
+import { PrismaClient } from '@prisma/client'
+
+@injectable()
+export class PrismaDB {
+    prisma: PrismaClient
+    constructor(@inject('PrismaClient') PrismaClient: () => PrismaClient) {
+       this.prisma = PrismaClient()
+    }
+}
+```
+
+
+
+tsconfig.json
+
+支持装饰器和反射 打开一下 严格模式关闭
+
+```json
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "ES6",
+    "module": "commonjs",
+    "lib": ["ES6"]
+  }
+}
+```
+
+## 什么是jwt?
+
+JWT（JSON Web Token）是一种开放的标准（RFC 7519），用于在网络应用间传递信息的一种方式。它是一种基于JSON的安全令牌，用于在客户端和服务器之间传输信息。 [jwt.io/](https://link.juejin.cn?target=https%3A%2F%2Fjwt.io%2F)
+
+JWT由三部分组成，它们通过点（.）进行分隔：
+
+1. Header（头部）：包含了令牌的类型和使用的加密算法等信息。通常采用Base64编码表示。
+2. Payload（负载）：包含了身份验证和授权等信息，如用户ID、角色、权限等。也可以自定义其他相关信息。同样采用Base64编码表示。
+3. Signature（签名）：使用指定的密钥对头部和负载进行签名，以确保令牌的完整性和真实性。
+
+JWT的工作流程如下：
+
+1. 用户通过提供有效的凭证（例如用户名和密码）进行身份验证。
+2. 服务器验证凭证，并生成一个JWT作为响应。JWT包含了用户的身份信息和其他必要的数据。
+3. 服务器将JWT发送给客户端。
+4. 客户端在后续的请求中，将JWT放入请求的头部或其他适当的位置。
+5. 服务器在接收到请求时，验证JWT的签名以确保其完整性和真实性。如果验证通过，服务器使用JWT中的信息进行授权和身份验证。
+
+**用到的依赖**
+
+1. `passport`  passport是一个流行的用于身份验证和授权的Node.js库
+2. `passport-jwt`  Passport-JWT是Passport库的一个插件，用于支持使用JSON Web Token (JWT) 进行身份验证和授权
+3. `jsonwebtoken`  生成token的库
+
+在上面的代码上加一个src/jwt/index.ts
+
+```ts
+import { injectable } from 'inversify'
+import jsonwebtoken from 'jsonwebtoken'
+import passport from 'passport'
+import { Strategy, ExtractJwt } from 'passport-jwt'
+@injectable()
+export class JWT {
+    private secret = 'xiaoman$%^&*()asdsd'
+    private jwtOptions = {
+        jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+        secretOrKey: this.secret
+    }
+    constructor() {
+        this.strategy()
+    }
+
+    /**
+     * 初始化jwt
+     */
+    public strategy() {
+        const strategy = new Strategy(this.jwtOptions, (payload, done) => {
+            done(null, payload)
+        })
+        passport.use(strategy)
+    }
+
+    /**
+     * 
+     * @returns 中间件
+     */
+    public middleware() {
+        return passport.authenticate('jwt', { session: false })
+    }
+
+    /**
+     * 创建token
+     * @param data Object
+     */
+    public createToken(data: object) {
+        //有效期为30分钟
+        return jsonwebtoken.sign(data, this.secret, { expiresIn: '30m' })
+    }
+
+    /**
+     * 
+     * @returns 集成到express
+     */
+    public init() {
+        return passport.initialize()
+    }
+}
+```
+
+
+
+main.ts
+
+```ts
+import 'reflect-metadata'
+import { InversifyExpressServer } from 'inversify-express-utils'
+import { Container } from 'inversify'
+import { User } from './src/user/controller'
+import { UserService } from './src/user/services'
+import express from 'express'
+import { PrismaClient } from '@prisma/client'
+import { PrismaDB } from './src/db'
+import { JWT } from './src/jwt'
+const container = new Container()
+/**
+ * user模块
+ */
+container.bind(User).to(User)
+container.bind(UserService).to(UserService)
+/**
+ *  封装PrismaClient
+ */
+container.bind<PrismaClient>('PrismaClient').toFactory(() => {
+    return () => {
+        return new PrismaClient()
+    }
+})
+container.bind(PrismaDB).to(PrismaDB)
+/**
+ * jwt模块
+ */
+container.bind(JWT).to(JWT) //主要代码
+
+
+const server = new InversifyExpressServer(container)
+server.setConfig((app) => {
+    app.use(express.json())
+    app.use(container.get(JWT).init()) //主要代码
+})
+const app = server.build()
+
+app.listen(3000, () => {
+    console.log('Listening on port 3000')
+})
+```
+
+
+
+src/user/controller.ts
+
+```ts
+import { controller, httpGet as GetMapping, httpPost as PostMapping } from 'inversify-express-utils'
+import { UserService } from './services'
+import { inject } from 'inversify'
+import type { Request, Response } from 'express'
+import { JWT } from '../jwt'
+const {middleware}  = new JWT()
+@controller('/user')
+export class User {
+    constructor(@inject(UserService) private readonly UserService: UserService) {
+
+    }
+    @GetMapping('/index',middleware()) //主要代码
+    public async getIndex(req: Request, res: Response) {
+        let result = await this.UserService.getList()
+        res.send(result)
+    }
+
+    @PostMapping('/create')
+    public async createUser(req: Request, res: Response) {
+        let result = await this.UserService.createUser(req.body)
+        res.send(result)
+    }
+}
+```
+
+
+
+src/user/services.ts
+
+```ts
+import { injectable, inject } from 'inversify'
+import { PrismaDB } from '../db'
+import { UserDto } from './user.dto'
+import { plainToClass } from 'class-transformer'
+import { validate } from 'class-validator'
+import { JWT } from '../jwt'
+@injectable()
+export class UserService {
+    constructor(
+        @inject(PrismaDB) private readonly PrismaDB: PrismaDB,
+        @inject(JWT) private readonly jwt: JWT //依赖注入
+    ) {
+
+    }
+    public async getList() {
+        return await this.PrismaDB.prisma.user.findMany()
+    }
+
+    public async createUser(user: UserDto) {
+        let userDto = plainToClass(UserDto, user)
+        const errors = await validate(userDto)
+        if (errors.length) {
+            return errors
+        } else {
+            const result = await this.PrismaDB.prisma.user.create({
+                data: user
+            })
+            return {
+                ...result,
+                token: this.jwt.createToken(result) //生成token
+            }
+        }
+
+    }
+}
+```
+
+## ioredis连接redis
+
+ioredis 是一个强大且流行的 Node.js 库，用于与 Redis 进行交互。Redis 是一个开源的内存数据结构存储系统。ioredis 提供了一个简单高效的 API，供 Node.js 应用程序与 Redis 服务器进行通信。
+
+以下是 ioredis 的一些主要特点：
+
+1. 高性能：ioredis 设计为快速高效。它支持管道操作，可以在一次往返中发送多个 Redis 命令，从而减少网络延迟。它还支持连接池，并且可以在连接丢失时自动重新连接到 Redis 服务器。
+2. Promises 和 async/await 支持：ioredis 使用 promises，并支持 async/await 语法，使得编写异步代码和处理 Redis 命令更加可读。
+3. 集群和 sentinel 支持：ioredis 内置支持 Redis 集群和 Redis Sentinel，这是 Redis 的高级功能，用于分布式设置和高可用性。它提供了直观的 API，用于处理 Redis 集群和故障转移场景。
+4. Lua 脚本：ioredis 允许你使用 `eval` 和 `evalsha` 命令在 Redis 服务器上执行 Lua 脚本。这个功能使得你可以在服务器端执行复杂操作，减少客户端与服务器之间的往返次数。
+5. 发布/订阅和阻塞命令：ioredis 支持 Redis 的发布/订阅机制，允许你创建实时消息系统和事件驱动架构。它还提供了对 `BRPOP` 和 `BLPOP` 等阻塞命令的支持，允许你等待项目被推送到列表中并原子地弹出它们。
+6. 流和管道：ioredis 支持 Redis 的流数据类型，允许你消费和生成数据流。它还提供了一种方便的方式将多个命令进行管道化，减少与服务器之间的往返次数。
+
+### 使用方法
+
+安装
+
+```sh
+npm i ioredis
+```
+
+连接redis
+
+```js
+import Ioredis from 'ioredis'
+
+const ioredis = new Ioredis({
+    host: '127.0.0.1', //ip
+    port: 6379, //端口
+})
+```
+
+1、字符串
+
+```js
+//存储字符串并且设置过期时间
+ioredis.setex('key', 10, 'value') 
+//普通存储
+ioredis.set('key', 'value')
+//读取
+ioredis.get('key')
+```
+
+2、集合
+
+```js
+// 添加元素到集合
+redis.sadd('myset', 'element1', 'element2', 'element3');
+
+// 从集合中移除元素
+redis.srem('myset', 'element2');
+
+// 检查元素是否存在于集合中
+redis.sismember('myset', 'element1')
+  .then((result) => {
+    console.log('Is member:', result); // true
+  });
+
+// 获取集合中的所有元素
+redis.smembers('myset')
+  .then((members) => {
+    console.log('Members:', members);
+  });
+```
+
+3、哈希
+
+```js
+// 设置哈希字段的值
+redis.hset('myhash', 'field1', 'value1');
+redis.hset('myhash', 'field2', 'value2');
+
+// 获取哈希字段的值
+redis.hget('myhash', 'field1')
+  .then((value) => {
+    console.log('Value:', value); // "value1"
+  });
+
+// 删除哈希字段
+redis.hdel('myhash', 'field2');
+
+// 获取整个哈希对象
+redis.hgetall('myhash')
+  .then((hash) => {
+    console.log('Hash:', hash); // { field1: 'value1' }
+  });
+```
+
+4、队列
+
+```js
+// 在队列的头部添加元素
+redis.lpush('myqueue', 'element1');
+redis.lpush('myqueue', 'element2');
+
+// 获取队列中所有元素
+redis.lrange('myqueue', 0, -1)
+  .then((elements) => {
+    console.log('Queue elements:', elements);
+  });
+//获取长度
+redis.llen('myqueue')
+  .then((length) => {
+    console.log('Queue length:', length);
+});
+```
+
+### 发布订阅
+
+```js
+// 引入 ioredis 库
+import Ioredis from 'ioredis';
+
+// 创建与 Redis 服务器的连接
+const ioredis = new Ioredis({
+  host: '127.0.0.1',
+  port: 6379,
+});
+
+// 创建另一个 Redis 连接实例
+const redis2 = new Ioredis();
+
+// 订阅频道 'channel'
+ioredis.subscribe('channel');
+
+// 监听消息事件
+ioredis.on('message', (channel, message) => {
+  console.log(`Received a message from channel ${channel}: ${message}`);
+});
+
+// 发布消息到频道 'channel'
+redis2.publish('channel', 'hello world');
 ```
 
