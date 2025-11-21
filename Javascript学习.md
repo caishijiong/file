@@ -157,7 +157,7 @@ console.log(adults); // 两个对象都会保留
 const userMap = users.reduce((map, user) => {
     map[user.name] = user.age;
     return map;
-});
+},{});
 console.log(userMap); // {小明: 18, 小李: 20}
 ```
 
