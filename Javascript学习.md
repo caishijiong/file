@@ -164,45 +164,32 @@ console.log(userMap); // {小明: 18, 小李: 20}
 ## 响应式打开组件的方法
 
 ```html
-<el-button @click="OpenDetails(scope.row)" type="text" size="small">详情</el-button>
-<el-button @click="OpenRating(scope.row)" type="text" size="small">评级</el-button>
-
-// 这里是组件
-<Details v-model="isDetailsOpen" :row="selectedRow"></Details>
-<Rating @success="getTableData" v-model="isRatingOpen" :row="selectedRow"></Rating>
-
-// 赋值
-data() {
-	return {
-		selectedRow: {},
-		isDetailsOpen: false,
-		isResignOpen: false,
-	}
-}
-
-// 打开的方法
-OpenDetails(row) {
-			this.selectedRow = row
-			this.isDetailsOpen = true
-		},
-
-OpenResign(row) {
-			this.selectedRow = row
-			this.isResignOpen = true
-		},
-
-// 组件内容
 <template>
-	<div>
-		<el-drawer title="个人详情" :visible.sync="drawer" :before-close="handleClose" append-to-body size="100%">
-			<FormDetails :tableData="tableData"></FormDetails>
-		</el-drawer>
-	</div>
+	<el-dialog title="创建" :visible.sync="isShow" width="30%" :close-on-click-modal="false" @close="close">
+		<el-form :model="info" label-position="right" label-width="80px" class="flex">
+			<el-form-item label="项目名称" prop="name" class="w50p">
+				<el-input v-model="info.name" placeholder="请输入项目名称" class="w280"></el-input>
+			</el-form-item>
+			<el-form-item label="项目描述" prop="description" class="w50p">
+				<el-input v-model="info.description" placeholder="请输入项目描述" class="w280"></el-input>
+			</el-form-item>
+			<el-form-item label="开始日期" prop="startDate" class="w50p">
+				<el-date-picker v-model="info.startDate" type="date" placeholder="选择开始日期" class="w280"></el-date-picker>
+			</el-form-item>
+			<el-form-item label="结束日期" prop="endDate" class="w50p">
+				<el-date-picker v-model="info.endDate" type="date" placeholder="选择结束日期" class="w280"></el-date-picker>
+			</el-form-item>
+		</el-form>
+		<div class="operate flex-center">
+			<el-button @click="this.$emit('change', this.isShow)" type="primary" plain>取消</el-button>
+			<el-button type="primary" @click="submit">创建项目</el-button>
+		</div>
+	</el-dialog>
 </template>
 
 <script>
-import FormDetails from './FormDetails'
 export default {
+	name: 'Create',
 	model: {
 		prop: 'state',
 		event: 'change'
@@ -211,48 +198,93 @@ export default {
 		state: {
 			type: Boolean,
 			default: false
-		},
-		row: {
-			type: Object,
-			default: () => ({})
 		}
 	},
 	data() {
 		return {
-			drawer: false,
+			info: {
+				name: '',
+				description: '',
+				startDate: '',
+				endDate: ''
+			}
+		}
+	},
+	computed: {
+		isShow: {
+			get() {
+                this.init()
+				return this.state
+			},
+			set(val) {
+				this.$emit('change', val)
+			}
+		}
+	},
+	methods: {
+        init() {
+            this.info = {
+                name: '',
+                description: '',
+                startDate: '',
+                endDate: ''
+            }
+        },
+		submit() {
+			console.log('创建项目', this.info)
+			// 提交逻辑
+		},
+		close() {
+			this.$emit('change', false)
 		}
 	},
 	watch: {
 		state: {
 			immediate: true,
-			handler(val) {
-				this.drawer = val
-				if (val) {
-					this.getTableData()
-				}
-			}
-		},
-		drawer: {
-			handler(val) {
-				this.$emit('change', val)
+			async handler(state) {
+				this.isShow = state
 			}
 		}
 	}
 }
 </script>
 
+<style scoped lang="scss">
+.page-container {
+	min-width: 800px;
+}
+
+.container {
+	box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.1), 0 0 6px rgba(0, 0, 0, 0.1);
+	box-sizing: border-box;
+	background-color: #fff;
+	padding: 20px;
+	width: 100%;
+	border-radius: 5px;
+	box-sizing: border-box;
+}
+
+.operate {
+	padding: 15px 0;
+}
+</style>
+```
+
+方法二
+
+```vue
 <template>
 	<div>
-		<el-dialog title="离职" :visible.sync="dialog" width="30%" :before-close="handleClose" append-to-body>
-			<el-form :model="item" label-width="60px" class="flex-center">
-				<el-form-item label="备注" class="w100p">
-					<el-input type="textarea" v-model="item.remark" class="w100p" />
+		<el-dialog title="修改薪资值" :visible.sync="isShow" width="30%" @close="close">
+			<el-form label-position="right" label-width="80px" :model="info" ref="form" :rules="rules" class="flex form">
+				<el-form-item label="薪资" prop="salary" class="w100p">
+					<el-input v-model="info.salary" placeholder="请输入薪资" clearable></el-input>
 				</el-form-item>
 			</el-form>
-			<span slot="footer" class="flex-center">
-				<el-button @click="close()">取 消</el-button>
+			<div class="operate flex-center">
+				<el-button @click="isShow = false">取 消</el-button>
 				<el-button type="primary" @click="submit()">确 定</el-button>
-			</span>
+			</div>
 		</el-dialog>
 	</div>
 </template>
@@ -268,38 +300,52 @@ export default {
 			type: Boolean,
 			default: false
 		},
-		row: {
-			type: Object,
-			default: () => ({})
-		}
 	},
 	data() {
 		return {
-			dialog: false,
-			item: {
-				remark: ''
+			isShow: false,
+			info: {
+				salary: ''
+			},
+			rules: {
+				salary: [{ required: true, message: '请输入薪资', trigger: 'blur' }]
 			}
 		}
+	},
+
+	methods: {
+		init() {
+			this.info.salary = ''
+		},
+
+		submit() {
+			console.log('创建项目', this.info)
+		},
+
+		close() {
+			this.$emit('change', this.isShow)
+		},
+
 	},
 	watch: {
 		state: {
 			immediate: true,
-			handler(val) {
-				this.dialog = val
-				if (val) {
-					this.init()
-				}
-			}
-		},
-		dialog: {
-			handler(val) {
-				this.$emit('change', val)
+			async handler(state) {
+				this.isShow = state
+				this.init()
 			}
 		}
 	}
 }
 </script>
+<style scoped lang="scss">
+.operate {
+	padding: 15px 0;
+}
+</style>
 ```
+
+
 
 ## fetch请求
 
