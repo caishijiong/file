@@ -4848,7 +4848,7 @@ node-gyp configure #生成配置文件
 node-gyp build  #打包addon
 ```
 
-## 大文件上传
+## 大文件上传-分片上传
 
 `大文件上传`：将大文件切分成较小的片段（通常称为分片或块），然后逐个上传这些分片。这种方法可以提高上传的稳定性，因为如果某个分片上传失败，只需要重新上传该分片而不需要重新上传整个文件。同时，分片上传还可以利用多个网络连接并行上传多个分片，提高上传速度。
 
@@ -4906,13 +4906,79 @@ const uploadFile = (chunks) => {
                'Content-Type': 'application/json'
             },
             body:JSON.stringify({
-                fileName: 'xiaoManXieZhen',
+                fileName: 'Curry',
             })
         }).then(res => {
             console.log(res)
         })
     })
 }
+```
+
+index.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+</head>
+
+<body>
+    <input id="file" type="file" />
+    <!--用来上传文件-->
+
+    <script>
+        const file = document.getElementById('file')
+        
+        const chunkFun = (file, size = 1024 * 1024 * 4) => {
+            const chunks = []
+            for (let i = 0; i < file.size; i += size) {
+                chunks.push(file.slice(i, i + size))
+            }
+            return chunks
+        }
+        file.addEventListener('change', (event) => {
+            const file = event.target.files[0] //获取文件信息
+            // file对象 底层是继承于blob 需要调用slice 方法切割
+            const chunks = chunkFun(file)
+            uploadFile(chunks)
+        })
+        const uploadFile = (chunks) => {
+            const List = []
+            for (let i = 0; i < chunks.length; i++) {
+                const formData = new FormData()
+                formData.append('index', i)
+                formData.append('total', chunks.length)
+                formData.append('fileName', 'xiezhen')
+                formData.append('file', chunks[i])
+                List.push(
+                    fetch('http://127.0.0.1:3000/up', {
+                        method: 'POST',
+                        body: formData,
+                    }))
+                }
+            Promise.all(List).then((res) => {
+                fetch('http://127.0.0.1:3000/merge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fileName: 'Curry',
+                    }),
+                }).then((res) => {
+                    console.log(res)
+                })
+            })
+        }
+    </script>
+</body>
+
+</html>
 ```
 
 ### nodejs端实现
@@ -4922,16 +4988,6 @@ const uploadFile = (chunks) => {
 1. express 帮我们启动服务，并且提供接口
 2. multer 读取文件，存储
 3. cors 解决跨域
-
-引入模块
-
-```js
-import express from 'express'
-import multer from 'multer'
-import cors from 'cors'
-import fs from 'node:fs'
-import path from 'node:path'
-```
 
 提供两个接口
 
@@ -4956,7 +5012,15 @@ import path from 'node:path'
 
 读取之后返回的是一个数组，但是读取的时候会乱序，所以从小到大排个序，用了sort，排完序之后，读取每个切片的内容，通过 fs.appendFileSync 合并至一个文件，最后删除合并过的切片 完成。`respect`
 
+index.js
+
 ```js
+import express from 'express'
+import multer from 'multer'
+import cors from 'cors'
+import fs from 'node:fs'
+import path from 'node:path'
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/')
@@ -5002,7 +5066,90 @@ npm install express #启动服务 提供接口
 npm install cors #解决跨域
 ```
 
+### nodejs 完整版代码
 
+核心知识响应头
 
+1. `Content-Type` 指定下载文件的 MIME 类型
 
+- `application/octet-stream`（二进制流数据）
+- `application/pdf`：Adobe PDF 文件。
+- `application/json`：JSON 数据文件
+- `image/jpeg`：JPEG 图像文件
+
+1. `Content-Disposition` 指定服务器返回的内容在浏览器中的处理方式。它可以用于控制文件下载、内联显示或其他处理方式
+
+- `attachment`：指示浏览器将响应内容作为附件下载。通常与 `filename` 参数一起使用，用于指定下载文件的名称
+- `inline`：指示浏览器直接在浏览器窗口中打开响应内容，如果内容是可识别的文件类型（例如图片或 PDF），则在浏览器中内联显示
+
+index.js
+
+```js
+import express from 'express'
+import fs from 'fs'
+import path from 'path'
+import cors from 'cors'
+
+const app = express()
+app.use(cors())
+app.use(express.json())
+app.use(express.static('./static'))
+
+app.post('/download',function(req, res){
+    const fileName = req.body.fileName
+    const filePath = path.join(process.cwd(), './static', fileName)
+    const content = fs.readFileSync(filePath)
+    res.setHeader('Content-Type', 'application/octet-stream')
+    res.setHeader('Content-Disposition', 'attachment; filename=' + fileName)
+    res.send(content)
+})
+
+app.listen(3000, ()=>{
+    console.log('http://localhost:3000')
+})
+```
+
+### 前端逻辑
+
+前端核心逻辑就是接受的返回值是流的方式`arrayBuffer`,转成blob，生成下载链接，模拟a标签点击下载
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <button id="btn">download</button>
+
+    <script>
+        const btn = document.getElementById('btn')
+        btn.onclick = () => {
+            fetch('http://localhost:3000/download', {
+                method: 'post',
+                body: JSON.stringify({
+                    // 这个是要下载的文件名
+                    fileName: 'lan.jpg'
+                }),
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            }).then(res => res.arrayBuffer()).then(res => {
+                const blob = new Blob([res], { type: 'image/png' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = '1.png'
+                a.click()
+            })
+        }
+    </script>
+</body>
+
+</html>
+```
 
