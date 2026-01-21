@@ -369,3 +369,842 @@ async es() {
 		}
 ```
 
+
+
+## 动态表格和导出
+
+### 有二级表头的
+
+```vue
+<template>
+	<div class="layout">
+		<div>
+			<div class="flex-space-between">
+				<div>
+					<el-button @click="$emit('back')" class="mr10">返回</el-button>
+					<el-input
+						class="w220 mr10"
+						v-model="searchParams.teacherName"
+						placeholder="请输入授课教师名称"
+						clearable
+						suffix-icon="el-icon-search"
+						@change="searchFn"
+					></el-input>
+					<!-- <el-select v-model="searchParams.course" class="mr10" placeholder="请选择课程类型" clearable @change="searchFn">
+						<el-option v-for="item in courseList" :key="item.id" :label="item.name" :value="item.id"> </el-option>
+					</el-select> -->
+					<el-button icon="el-icon-refresh" @click="searchFn" title="刷新"></el-button>
+				</div>
+				<div>
+					<el-button type="primary" icon="el-icon-download" class="ml10" @click="isExport = true">导出</el-button>
+				</div>
+			</div>
+			<div class="mt10" ref="tableContainer">
+				<el-table :data="tableData" :height="tableHeight" border stripe @selection-change="onSelect">
+					<el-table-column align="center" prop="collegeName" label="所在学院"></el-table-column>
+					<el-table-column align="center" prop="className" label="授课班级"></el-table-column>
+					<el-table-column align="center" prop="teacherName" label="授课教师"></el-table-column>
+					<el-table-column align="center" prop="courseName" label="课程名称"></el-table-column>
+					<el-table-column align="center" prop="expectedNum" label="应到学生人数" min-width="120"></el-table-column>
+					<el-table-column align="center" prop="actualNum" label="实到学生人数" min-width="120"></el-table-column>
+					<el-table-column align="center" prop="attendTime" label="听课时间"></el-table-column>
+					<el-table-column align="center" prop="updateTime" label="修改时间"></el-table-column>
+					<el-table-column v-for="headerCol in headerColumns" :key="headerCol.label" :label="headerCol.label" align="center">
+						<el-table-column
+							v-for="childCol in headerCol.children"
+							:key="childCol.label"
+							:prop="childCol.prop"
+							:label="childCol.label"
+							align="center"
+						>
+						</el-table-column>
+					</el-table-column>
+				</el-table>
+			</div>
+			<div class="flex-end mt10">
+				<el-pagination
+					:current-page="paging.page"
+					:page-sizes="paging.size"
+					:page-size="paging.limit"
+					layout="total, sizes, prev, pager, next, jumper"
+					:total="paging.count"
+					background
+					@size-change="pagingSizeChangeFn"
+					@current-change="pagingCurrentChangeFn"
+				>
+				</el-pagination>
+			</div>
+			<ExportSuperviseRecord v-model="isExport" :id="id" :data="idList" :headerColumns="headerColumns"></ExportSuperviseRecord>
+		</div>
+	</div>
+</template>
+
+<script>
+import ExportSuperviseRecord from './ExportSuperviseRecord'
+import { paging, setTableHeight } from '@/mixin'
+import { record } from '@/apiUtils'
+export default {
+	components: { ExportSuperviseRecord },
+	mixins: [paging(), setTableHeight({ subtract: 80 })],
+	props: {
+		id: {
+			type: Number,
+			required: true,
+			default: ''
+		}
+	},
+	data() {
+		return {
+			searchParams: {
+				teacherName: '',
+				course: ''
+			},
+			tableData: [],
+			headerColumns: [],
+			idList: [],
+			courseList: [
+				{ id: 1, name: '理论' },
+				{ id: 2, name: '实践' }
+			],
+			isExport: false
+		}
+	},
+	methods: {
+		searchFn() {
+			this.paging.page = 1
+			this.getTableData()
+		},
+
+		onSelect(list) {
+			this.idList = list
+		},
+
+		async getTableData() {
+			const { page, limit } = this.paging
+			const loading = this.$loading({ text: '加载中' })
+			const {
+				code,
+				msg,
+				data = [],
+				count
+			} = await record.getSupervisorRecord({
+				page: page,
+				limit: limit,
+				...this.searchParams
+			})
+			loading.close()
+			if (code !== 0) {
+				this.$message.error({ message: msg, showClose: true })
+				return
+			}
+			this.tableData = data.map((row) => {
+				const dynamicFields = {}
+				if (Array.isArray(row.recordForm)) {
+					row.recordForm.forEach((item) => {
+						if (item && typeof item === 'object' && 'desc' in item && 'value' in item) {
+							dynamicFields[item.desc] = item.value
+						}
+					})
+				}
+				return {
+					...row,
+					...dynamicFields
+				}
+			})
+
+			this.paging.count = +count || 0
+		},
+
+		async getHeaderList(id) {
+			const { code, msg, data = [] } = await record.getHeader({ id: id })
+			if (code !== 0) {
+				this.$message.error({ message: msg, showClose: true })
+				return
+			}
+			const formList = data[0]?.formList || []
+
+			if (!formList.length) {
+				this.headerColumns = []
+				return
+			}
+			if ('groupItemList' in formList[0]) {
+				this.headerColumns = formList.map((groupItem) => {
+					return {
+						label: groupItem.groupDesc,
+						children: groupItem.groupItemList.map((childItem) => ({
+							label: childItem.desc,
+							prop: childItem.desc
+						}))
+					}
+				})
+			} else {
+				this.headerColumns = formList.map((item) => ({
+					label: item.groupDesc,
+					prop: item.groupDesc
+				}))
+			}
+		}
+	},
+
+	created() {
+		this.getTableData()
+	},
+
+	watch: {
+		id: {
+			immediate: true,
+			async handler(id) {
+				if (id) {
+					this.getHeaderList(id)
+				}
+			}
+		}
+	}
+}
+</script>
+
+<style scoped lang="scss">
+.layout {
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.1), -5px -5px 10px rgba(0, 0, 0, 0.1);
+	background-color: #fff;
+}
+</style>
+```
+
+#### 导出
+
+```vue
+<template>
+	<el-dialog
+		class="dialog"
+		title="导出数据"
+		:visible.sync="isShow"
+		width="45%"
+		destroy-on-close
+		@close="$emit('change', isShow)"
+		append-to-body
+		:close-on-click-modal="false"
+		:close-on-press-escape="false"
+	>
+		<el-form label-position="right" label-width="100px" ref="Form" class="form">
+			<el-form-item label="选择下载">
+				<el-select v-model="selected" class="w100p" placeholder="请选择下载" filterable>
+					<el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
+				</el-select>
+			</el-form-item>
+		</el-form>
+		<span slot="footer" class="flex-center">
+			<el-button size="large" @click="isShow = false">取 消</el-button>
+			<el-button size="large" class="theme-btn" @click="submit">确 定</el-button>
+		</span>
+	</el-dialog>
+</template>
+
+<script>
+import { record } from '@/apiUtils'
+import { createWorkbook } from '@/utils'
+
+export default {
+	props: {
+		state: {
+			type: Boolean,
+			default: false
+		},
+		data: {
+			type: Array,
+			default() {
+				return []
+			}
+		},
+		id: {
+			type: Number,
+			required: true,
+			default: ''
+		},
+		headerColumns: {
+			type: Array,
+			default() {
+				return []
+			}
+		}
+	},
+
+	model: {
+		prop: 'state',
+		event: 'change'
+	},
+	data() {
+		return {
+			isShow: false,
+			selected: 2,
+			options: [
+				// {
+				// 	id: 1,
+				// 	name: '导出勾选人员'
+				// },
+				{
+					id: 2,
+					name: '导出所有人员'
+				}
+				// {
+				// 	id: 3,
+				// 	name: '导出符合条件人员'
+				// }
+			]
+		}
+	},
+	methods: {
+		buildTwoLevelHeaders(baseHeaders, dynamicHeadersWithChildren) {
+			// baseHeaders 不变
+			const baseLabels = baseHeaders.map((h) => h.header)
+			const baseKeys = baseHeaders.map((h) => h.key)
+
+			let dynamicFirstRow = []
+			let dynamicSecondRow = []
+			let dynamicKeys = []
+
+			dynamicHeadersWithChildren.forEach((group) => {
+				if (group.children && Array.isArray(group.children) && group.children.length > 0) {
+					dynamicFirstRow.push(group.label)
+					for (let i = 1; i < group.children.length; i++) {
+						dynamicFirstRow.push('')
+					}
+					group.children.forEach((child) => {
+						dynamicSecondRow.push(child.label)
+						dynamicKeys.push(child.prop)
+					})
+				} else {
+					dynamicFirstRow.push(group.label)
+					dynamicSecondRow.push('')
+					dynamicKeys.push(group.prop)
+				}
+			})
+
+			const firstRowHeaders = [...baseLabels, ...dynamicFirstRow]
+			const secondRowHeaders = [...Array(baseLabels.length).fill(''), ...dynamicSecondRow]
+			const allKeys = [...baseKeys, ...dynamicKeys]
+
+			return {
+				firstRow: firstRowHeaders,
+				secondRow: secondRowHeaders,
+				keys: allKeys
+			}
+		},
+
+		async submit() {
+			if (this.selected === 1 && this.data.length === 0) {
+				this.$message.warning('请先勾选需要导出的人员')
+				return
+			}
+			const loading = this.$loading({ text: '正在处理数据...' })
+			const {
+				code,
+				msg,
+				data = []
+			} = await record.getSupervisorRecord({
+				ids: this.selected === 1 ? this.data.map((item) => item.id) : undefined
+			})
+
+			if (code !== 0) {
+				loading.close()
+				this.$message.error(msg)
+				return
+			}
+
+			const tableData = data.map((row) => {
+				const dynamicFields = {}
+				if (Array.isArray(row.recordForm)) {
+					row.recordForm.forEach((item) => {
+						if (item && typeof item === 'object' && 'desc' in item && 'value' in item) {
+							dynamicFields[item.desc] = item.value
+						}
+					})
+				}
+				return {
+					...row,
+					...dynamicFields
+				}
+			})
+
+			const border = {
+				top: { style: 'thin' },
+				bottom: { style: 'thin' },
+				left: { style: 'thin' },
+				right: { style: 'thin' }
+			}
+			const alignment = {
+				horizontal: 'center',
+				vertical: 'middle',
+				wrapText: true
+			}
+
+			let baseHeaders = [
+				{ key: 'collegeName', header: '所在学院' },
+				{ key: 'className', header: '授课班级' },
+				{ key: 'teacherName', header: '授课教师' },
+				{ key: 'courseName', header: '课程名称' },
+				{ key: 'expectedNum', header: '应到学生人数' },
+				{ key: 'actualNum', header: '实到学生人数' },
+				{ key: 'attendTime', header: '听课时间' }
+			]
+
+			const twoLevelHeaders = this.buildTwoLevelHeaders(baseHeaders, this.headerColumns)
+			const { firstRow, secondRow, keys } = twoLevelHeaders
+
+			const excelDataArray = [firstRow, secondRow, ...tableData.map((row) => keys.map((key) => row[key] || ''))]
+
+			const excel = await createWorkbook({
+				alignment: {
+					horizontal: 'center',
+					wrapText: true
+				},
+				cellStyle: {
+					border,
+					alignment
+				},
+				columnStyle: {
+					// width: '15'
+				},
+				rowStyle: {
+					height: 14
+				},
+				data: excelDataArray
+			})
+
+			const workSheet = excel.workeSheetConfig[0].workeSheet
+
+			// --- 合并单元格 ---
+			const baseColCount = baseHeaders.length
+			for (let i = 0; i < baseColCount; i++) {
+				workSheet.mergeCells(1, i + 1, 2, i + 1)
+			}
+
+			let currentColIndex = baseColCount + 1
+			this.headerColumns.forEach((group) => {
+				if (group.children && Array.isArray(group.children) && group.children.length > 0) {
+					const spanCount = group.children.length
+					if (spanCount > 1) {
+						workSheet.mergeCells(1, currentColIndex, 1, currentColIndex + spanCount - 1)
+					}
+					currentColIndex += spanCount
+				} else {
+					currentColIndex++
+				}
+			})
+
+			excel.browser.downloadXLSX('督导听课记录导出信息')
+			this.isShow = false
+			loading.close()
+			this.$alert('导出完成', '成功提示', { showCancelButton: false, type: 'success' })
+				.then(() => {})
+				.catch((error) => {
+					if (error === 'cancel' || error === 'closed') {
+					} else {
+						console.error('Alert closed with an error:', error)
+					}
+				})
+		}
+	},
+
+	watch: {
+		state: {
+			immediate: true,
+			async handler(state) {
+				this.isShow = state
+			}
+		}
+	}
+}
+</script>
+
+<style scoped lang="scss">
+.dialog {
+	:deep(.el-dialog) {
+		min-width: 500px;
+	}
+}
+</style>
+```
+
+### 没有二级表头
+
+```vue
+<template>
+	<div class="layout">
+		<div>
+			<div class="flex-space-between">
+				<div>
+					<el-button @click="$emit('back')" class="mr10">返回</el-button>
+					<el-input
+						class="w220 mr10"
+						v-model="searchParams.teacherName"
+						placeholder="请输入授课教师名称"
+						clearable
+						suffix-icon="el-icon-search"
+						@change="searchFn"
+					></el-input>
+					<!-- <el-select v-model="searchParams.course" class="mr10" placeholder="请选择课程类型" clearable @change="searchFn">
+						<el-option v-for="item in courseList" :key="item.id" :label="item.name" :value="item.id"> </el-option>
+					</el-select> -->
+					<el-button icon="el-icon-refresh" @click="searchFn" title="刷新"></el-button>
+				</div>
+				<div>
+					<el-button type="primary" icon="el-icon-download" class="ml10" @click="isExport = true">导出</el-button>
+				</div>
+			</div>
+			<div class="mt10" ref="tableContainer">
+				<el-table :data="tableData" :height="tableHeight" border stripe @selection-change="onSelect">
+					<el-table-column align="center" prop="collegeName" label="所在学院"></el-table-column>
+					<el-table-column align="center" prop="className" label="授课班级"></el-table-column>
+					<el-table-column align="center" prop="teacherName" label="授课教师"></el-table-column>
+					<el-table-column align="center" prop="courseName" label="课程名称"></el-table-column>
+					<el-table-column align="center" prop="expectedNum" label="应到学生人数" min-width="120"></el-table-column>
+					<el-table-column align="center" prop="actualNum" label="实到学生人数" min-width="120"></el-table-column>
+					<el-table-column align="center" prop="attendTime" label="听课时间"></el-table-column>
+					<el-table-column align="center" prop="updateTime" label="修改时间"></el-table-column>
+					<el-table-column align="center" prop="courseType" label="课程类型">
+						<template #default="{ row }">
+							<el-tag :type="row.courseType === '2' ? 'info' : ''">{{ row.courseTypeDesc }}</el-tag>
+						</template>
+					</el-table-column>
+					<el-table-column v-for="column in handerData" :key="column.title" :prop="column.title" :label="column.title" align="center">
+						<template #default="{ row }">
+							{{ row[column.title] }}
+						</template>
+					</el-table-column>
+				</el-table>
+			</div>
+			<div class="flex-end mt10">
+				<el-pagination
+					:current-page="paging.page"
+					:page-sizes="paging.size"
+					:page-size="paging.limit"
+					layout="total, sizes, prev, pager, next, jumper"
+					:total="paging.count"
+					background
+					@size-change="pagingSizeChangeFn"
+					@current-change="pagingCurrentChangeFn"
+				>
+				</el-pagination>
+			</div>
+			<ExportLeaderRecord v-model="isExport" :id="id" :data="idList" :handerData="handerData"></ExportLeaderRecord>
+		</div>
+	</div>
+</template>
+
+<script>
+import ExportLeaderRecord from './ExportLeaderRecord'
+import { paging, setTableHeight } from '@/mixin'
+import { record } from '@/apiUtils'
+export default {
+	components: { ExportLeaderRecord },
+	mixins: [paging(), setTableHeight({ subtract: 80 })],
+	props: {
+		id: {
+			type: Number,
+			required: true,
+			default: ''
+		}
+	},
+	data() {
+		return {
+			searchParams: {
+				teacherName: '',
+				course: ''
+			},
+			tableData: [],
+			handerData: [],
+			idList: [],
+			courseList: [
+				{ id: 1, name: '理论' },
+				{ id: 2, name: '实践' }
+			],
+			isExport: false
+		}
+	},
+	methods: {
+		searchFn() {
+			this.paging.page = 1
+			this.getTableData()
+		},
+
+		onSelect(list) {
+			this.idList = list
+		},
+
+		async getTableData() {
+			const { page, limit } = this.paging
+			const loading = this.$loading({ text: '加载中' })
+			const {
+				code,
+				msg,
+				data = [],
+				count
+			} = await record.getLeaderRecord({
+				page: page,
+				limit: limit,
+				...this.searchParams
+			})
+			loading.close()
+			if (code !== 0) {
+				this.$message.error({ message: msg, showClose: true })
+				return
+			}
+			this.tableData = data.map((row) => {
+				const dynamicFields = {}
+				if (Array.isArray(row.recordForm)) {
+					row.recordForm.forEach((item) => {
+						if (item && typeof item === 'object' && 'title' in item && 'value' in item) {
+							dynamicFields[item.title] = item.value
+						}
+					})
+				}
+				return {
+					...row,
+					...dynamicFields
+				}
+			})
+			if (data.length > 0 && Array.isArray(data[0].recordForm)) {
+				this.handerData = data[0].recordForm.map((item) => ({
+					title: item.title
+				}))
+			} else {
+				this.handerData = []
+			}
+
+			this.paging.count = +count || 0
+		},
+
+		async getHeaderList(id) {
+			const { code, msg, data = [] } = await record.getHeader({ id: id })
+			if (code !== 0) {
+				this.$message.error({ message: msg, showClose: true })
+				return
+			}
+			this.handerData = data[0].formList || []
+		}
+	},
+
+	created() {
+		this.getTableData()
+	},
+
+	watch: {
+		id: {
+			immediate: true,
+			async handler(id) {
+				if (id) {
+					this.getHeaderList(id)
+				}
+			}
+		}
+	}
+}
+</script>
+
+<style scoped lang="scss">
+.layout {
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.1), -5px -5px 10px rgba(0, 0, 0, 0.1);
+	background-color: #fff;
+}
+</style>
+```
+
+#### 导出
+
+```vue
+<template>
+	<el-dialog
+		class="dialog"
+		title="导出数据"
+		:visible.sync="isShow"
+		width="45%"
+		destroy-on-close
+		@close="$emit('change', isShow)"
+		append-to-body
+		:close-on-click-modal="false"
+		:close-on-press-escape="false"
+	>
+		<el-form label-position="right" label-width="100px" ref="Form" class="form">
+			<el-form-item label="选择下载">
+				<el-select v-model="selected" class="w100p" placeholder="请选择下载" filterable>
+					<el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
+				</el-select>
+			</el-form-item>
+		</el-form>
+		<span slot="footer" class="flex-center">
+			<el-button size="large" @click="isShow = false">取 消</el-button>
+			<el-button size="large" class="theme-btn" @click="submit">确 定</el-button>
+		</span>
+	</el-dialog>
+</template>
+
+<script>
+import { record } from '@/apiUtils'
+import { createExcel } from '@/utils'
+
+export default {
+	props: {
+		state: {
+			type: Boolean,
+			default: false
+		},
+		data: {
+			type: Array,
+			default() {
+				return []
+			}
+		},
+		id: {
+			type: Number,
+			required: true,
+			default: ''
+		},
+
+		handerData: {
+			type: Array,
+			default() {
+				return []
+			}
+		}
+	},
+
+	model: {
+		prop: 'state',
+		event: 'change'
+	},
+	data() {
+		return {
+			isShow: false,
+			selected: 2,
+			options: [
+				// {
+				// 	id: 1,
+				// 	name: '导出勾选人员'
+				// },
+				{
+					id: 2,
+					name: '导出所有人员'
+				}
+				// {
+				// 	id: 3,
+				// 	name: '导出符合条件人员'
+				// }
+			]
+		}
+	},
+	methods: {
+		async submit() {
+			if (this.selected === 1 && this.data.length === 0) {
+				this.$message.warning('请先勾选需要导出的人员')
+				return
+			}
+			const loading = this.$loading({ text: '正在处理数据...' })
+			const {
+				code,
+				msg,
+				data = []
+			} = await record.getLeaderRecord({
+				ids: this.selected === 1 ? this.data.map((item) => item.id) : undefined
+			})
+
+			if (code !== 0) {
+				loading.close()
+				this.$message.error(msg)
+				return
+			}
+
+			const tableData = data.map((row) => {
+				const dynamicFields = {}
+				if (Array.isArray(row.recordForm)) {
+					row.recordForm.forEach((item) => {
+						if (item && typeof item === 'object' && 'title' in item && 'value' in item) {
+							dynamicFields[item.title] = item.value
+						}
+					})
+				}
+				return {
+					...row,
+					...dynamicFields
+				}
+			})
+
+			let baseHeaders = [
+				{ key: 'collegeName', header: '所在学院' },
+				{ key: 'className', header: '授课班级' },
+				{ key: 'teacherName', header: '授课教师' },
+				{ key: 'courseName', header: '课程名称' },
+				{ key: 'expectedNum', header: '应到学生人数' },
+				{ key: 'actualNum', header: '实到学生人数' },
+				{ key: 'attendTime', header: '听课时间' },
+				{ key: 'courseType', header: '课程类型' }
+			]
+			let dynamicHeaders = []
+			if (Array.isArray(this.handerData) && this.handerData.length > 0) {
+				this.handerData.forEach((item) => {
+					dynamicHeaders.push({ key: item.title, header: item.title })
+				})
+			}
+
+			const allHeaders = [...baseHeaders, ...dynamicHeaders]
+
+			const excel = await createExcel({
+				alignment: {
+					horizontal: 'center',
+					wrapText: true
+				},
+				cellStyle: {
+					border: {
+						top: { style: 'thin' },
+						bottom: { style: 'thin' },
+						left: { style: 'thin' },
+						right: { style: 'thin' }
+					}
+				},
+				rowStyle: {
+					height: 14
+				},
+				width: 11,
+				headers: allHeaders,
+				data: tableData
+			})
+
+			excel.browser.downloadXLSX('领导听课记录导出信息')
+			this.isShow = false
+			loading.close()
+
+			this.$alert('导出完成', '成功提示', { showCancelButton: false, type: 'success' })
+				.then(() => {})
+				.catch((error) => {
+					if (error === 'cancel' || error === 'closed') {
+					} else {
+						console.error('Alert closed with an error:', error)
+					}
+				})
+		}
+	},
+
+	watch: {
+		state: {
+			immediate: true,
+			async handler(state) {
+				this.isShow = state
+			}
+		},
+	}
+}
+</script>
+
+<style scoped lang="scss">
+.dialog {
+	:deep(.el-dialog) {
+		min-width: 500px;
+	}
+}
+</style>
+```
+
