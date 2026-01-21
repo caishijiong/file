@@ -5153,3 +5153,443 @@ app.listen(3000, ()=>{
 </html>
 ```
 
+## http缓存
+
+HTTP 缓存主要分为两大类：`强缓存和协商缓存`。这两种缓存都通过 HTTP 响应头来控制，目的是提高网站性能。
+
+### 强缓存介绍
+
+强缓存之后则不需要向服务器发送请求，而是从浏览器缓存读取分为（`内存缓存`）| （`硬盘缓存`）
+
+1. memory cache(内存缓存) 内存缓存存储在浏览器内存当中，一般刷新网页的时候会发现很多内存缓存
+2. disk cache(硬盘缓存) 硬盘缓存是存储在计算机硬盘中，空间大，但是读取效率比内存缓存慢
+
+### 强缓存案例(Expires)
+
+Expires: 该字段指定响应的到期时间，即资源不再被视为有效的日期和时间。它是一个 HTTP 1.0 的头部字段，但仍然被一些客户端和服务器使用。
+
+Expires 的判断机制是：当客户端请求资源时，会获取本地时间戳，然后`拿本地时间戳与 Expires 设置的时间做对比`，如果对比成功，走强缓存，对比失败，则对服务器发起请求。
+
+node端
+
+```js
+import express from 'express'
+import cors from 'cors'
+const app = express()
+app.use(cors())
+app.get('/', (req, res) => {
+    res.setHeader('Expires', new Date('2024-3-30 23:17:00').toUTCString()) //设置过期时间
+    res.json({
+        name: 'cache',
+        version: '1.0.0'
+    })
+})
+
+app.listen(3000, () => {
+    console.log('Example app listening on port 3000!')
+})
+```
+
+web端请求
+
+```js
+<body>
+    <button id="btn">send</button>
+    <script>
+       const btn = document.getElementById('btn');
+       btn.addEventListener('click', () => {
+           fetch('http://localhost:3000')
+       })
+    </script>
+</body>
+```
+
+### 强缓存案例(Cache-Control)
+
+Cache-Control 的值如下：
+
+- `max-age`：浏览器资源缓存的时长(秒)。
+- `no-cache`：不走强缓存，**走协商缓存**。
+- `no-store`：禁止任何缓存策略。
+- `public`：资源即可以被浏览器缓存也可以被代理服务器缓存(CDN)。
+- `private`：资源只能被客户端缓存。
+
+> 如果 max-age 和 Expires 同时出现 max-age 优先级高
+
+node端
+
+```js
+import express from 'express'
+import cors from 'cors'
+const app = express()
+app.use(cors())
+app.get('/', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=20') //20秒
+    res.json({
+        name: 'cache',
+        version: '1.0.0'
+    })
+})
+
+
+app.listen(3000, () => {
+    console.log('Example app listening on port 3000!')
+})
+```
+
+### 协商缓存介绍
+
+当涉及到缓存机制时，强缓存优先于协商缓存。当资源的强缓存生效时，客户端可以直接从本地缓存中获取资源，而无需与服务器进行通信。强缓存的判断是通过缓存头部字段来完成的，例如设置了合适的`Cache-Control`和`Expires`字段。
+
+如果强缓存未命中（例如`max-age`过期），或者服务器响应中设置了`Cache-Control: no-cache`，则客户端会发起协商缓存的请求。在协商缓存中，客户端会发送带有缓存数据标识的请求头部字段，以向服务器验证资源的有效性。
+
+服务器会根据客户端发送的协商缓存字段（如`If-Modified-Since`和`If-None-Match`）来判断资源是否发生变化。如果资源未发生修改，服务器会返回状态码 304（Not Modified），通知客户端可以使用缓存的版本。如果资源已经发生变化，服务器将返回最新的资源，状态码为 200。
+
+### 协商缓存(Last-Modified)
+
+Last-Modified 和 If-Modified-Since：服务器通过 Last-Modified 响应头告知客户端资源的最后修改时间。客户端在后续请求中通过 If-Modified-Since 请求头携带该时间，服务器判断资源是否有更新。如果没有更新，返回 304 状态码。
+
+nodejs端
+
+```js
+import express from 'express'
+import cors from 'cors'
+import fs from 'node:fs'
+const getModifyTime = () => {
+    return fs.statSync('./index.js').mtime.toISOString() //获取文件最后修改时间
+}
+const app = express()
+app.use(cors())
+app.get('/api', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, max-age=2592000')//表示走协商缓存
+    const ifModifiedSince = req.headers['if-modified-since'] //获取浏览器上次修改时间
+    res.setHeader('Last-Modified', getModifyTime())
+    if (ifModifiedSince && ifModifiedSince === getModifyTime()) {
+        console.log('304')
+        res.statusCode = 304
+        res.end()
+        return
+    } else {
+        console.log('200')
+        res.end('value')
+    }
+})
+
+
+app.listen(3000, () => {
+    console.log('Example app listening on port 3000!')
+})
+```
+
+### 协商缓存(ETag)
+
+ETag 和 If-None-Match：服务器通过 ETag 响应头给资源生成一个唯一标识符。客户端在后续请求中通过 If-None-Match 请求头携带该标识符，服务器根据标识符判断资源是否有更新。如果没有更新，返回 304 状态码。
+
+> ETag 优先级比 Last-Modified 高
+
+```js
+import express from 'express'
+import cors from 'cors'
+import fs from 'node:fs'
+import crypto from 'node:crypto'
+const getFileHash = () => {
+    return crypto.createHash('sha256').update(fs.readFileSync('index.js')).digest('hex')
+}
+const app = express()
+app.use(cors())
+app.get('/api', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, max-age=2592000')//表示走协商缓存
+    const etag = getFileHash()
+    const ifNoneMatch = req.headers['if-none-match']
+    if(ifNoneMatch === etag) {
+        res.sendStatus(304)
+        return
+    }
+    res.setHeader('ETag', etag)
+    res.send('Etag')
+    
+})
+
+
+app.listen(3000, () => {
+    console.log('Example app listening on port 3000!')
+})
+```
+
+## http2
+
+HTTP/2（HTTP2）是超文本传输协议（HTTP）的下一个主要版本，它是对 HTTP/1.1 协议的重大改进。HTTP/2 的目标是改善性能、效率和安全性，以提供更快、更高效的网络通信
+
+> 如何分辨是http/1.1 还是 http2
+
+1、多路复用（Multiplexing）：HTTP/2 支持在单个 TCP 连接上同时发送多个请求和响应。这意味着可以避免建立多个连接，减少网络延迟，提高效率。
+
+2、二进制分帧（Binary Framing）：在应用层（HTTP2）和传输层（TCP or UDP）之间增加了`二进制分帧层`，将请求和响应拆分为多个帧（frames）。这种二进制格式的设计使得协议更加高效，并且容易解析和处理。
+
+> 帧：最小的通信单位，承载特定类型的数据，比如HTTP首部、负荷
+
+HTTP/2 帧类型：
+
+1. 数据帧（Data Frame）：用于传输请求和响应的实际数据。
+2. 头部帧（Headers Frame）：包含请求或响应的头部信息。
+3. 优先级帧（Priority Frame）：用于指定请求的优先级。
+4. 设置帧（Settings Frame）：用于传输通信参数的设置。
+5. 推送帧（Push Promise Frame）：用于服务器主动推送资源。
+6. PING 帧（PING Frame）：用于检测连接的活跃性。
+7. 重置帧（RST_STREAM Frame）：用于重置数据流或通知错误。
+
+3、头部压缩（Header Compression）：HTTP/2 使用首部表（Header Table）和动态压缩算法来减少头部的大小。这减少了每个请求和响应的开销，提高了传输效率。
+
+> 请求一发送了所有的头部字段，第二个请求则只需要发送差异数据，这样可以减少冗余数据，降低开销
+
+### nodejs 实现http2
+
+> 截止2024-4-2日 目前没有浏览器支持http请求访问http2,所以要用https
+
+可以使用`openssl` 生成 `tls证书`
+
+1.生成私钥
+
+```sh
+openssl genrsa -out server.key 1024
+```
+
+2.生成证书请求文件(用完可以删掉也可以保留)
+
+```sh
+openssl req -new -key server.key -out server.csr
+```
+
+3.生成证书
+
+```sh
+openssl x509 -req -in server.csr -out server.crt -signkey server.key -days 3650
+```
+
+```js
+import http2 from 'node:http2'
+import fs from 'node:fs'
+
+const server = http2.createSecureServer({
+    key: fs.readFileSync('server.key'),
+    cert: fs.readFileSync('server.crt')
+})
+
+server.on('stream', (stream, headers) => {
+    stream.respond({
+        'content-type': 'text/html; charset=utf-8',
+        ':status': 200
+    })
+    stream.on('error', (err) => {
+        console.log(err)
+    })
+    stream.end(`
+      <h1>http2</h1>
+    `)
+})
+
+
+
+server.listen(80, () => {
+    console.log('server is running on port 80')
+})
+```
+
+通过`selfsigned`，进行实现
+
+```js
+import https from 'node:https'
+import selfsigned from 'selfsigned'
+
+(async () => {
+  try {
+    // 使用 await 等待证书生成完成
+    const pems = await selfsigned.generate()
+    // console.log('Generated Cert Info:', pems) // 这里会打印出实际的证书对象
+
+    const server = https.createServer(
+      {
+        key: pems.private,
+        cert: pems.cert,
+        minVersion: 'TLSv1.2',
+        // ciphers: '...' // 可选，根据需要添加
+      },
+      (req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(`
+        <h1>HTTPS Test OK with await selfsigned</h1>
+        <p>Using async/await with selfsigned.</p>
+      `)
+      }
+    )
+
+    server.listen(8443, () => {
+      console.log('HTTPS Test Server running on https://localhost:8443')
+    })
+  } catch (err) {
+    console.error('Error generating certificate:', err)
+  }
+})()
+```
+
+## 短链接
+
+### 短链接介绍
+
+短链接是一种缩短长网址的方法，将原始的长网址转换为更短的形式。它通常由一系列的字母、数字和特殊字符组成，比起原始的长网址，短链接更加简洁、易于记忆和分享。
+
+短链接的主要用途之一是在社交媒体平台进行链接分享。由于这些平台对字符数量有限制，长网址可能会占用大量的空间，因此使用短链接可以节省字符数，并且更方便在推特、短信等限制字数的场景下使用。
+
+另外，短链接还可以用于跟踪和统计链接的点击量。通过在短链接中嵌入跟踪代码，网站管理员可以获得关于点击链接的详细统计数据，包括访问量、来源、地理位置等信息。这对于营销活动、广告推广或分析链接的效果非常有用。
+
+所需的依赖
+
+1. epxress 启动服务提供接口
+2. mysql2 knex依赖连接数据库
+3. knex orm框架操作mysql
+4. shortid 生成唯一短码
+
+数据库设计
+
+```sql
+CREATE TABLE `short` (
+    `id` int NOT NULL AUTO_INCREMENT COMMENT 'Primary Key', 
+    `short_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '短码', 
+    `url` varchar(255) NOT NULL COMMENT '网址',
+    PRIMARY KEY (`id`)
+) 
+```
+
+nodejs端
+
+```js
+import knex from 'knex';
+import express from 'express'
+import shortid from 'shortid';
+
+const app = express();
+app.use(express.json())
+const db = knex({
+    client: 'mysql2',
+    connection: {
+        host: '127.0.0.1',
+        user: 'root',
+        password: '1234',
+        database: 'short_link'
+    }
+});
+//生成短码 存入数据库
+app.post('/create_url', async (req, res) => {
+    const { url } = req.body
+    const short_id = shortid.generate()
+    const result = await db('short').insert({ short_id, url })
+    res.send(`http://localhost:3000/${short_id}`)
+})
+//重定向
+app.get('/:shortUrl', async (req, res) => {
+    const short_id = req.params.shortUrl
+    const result = await db('short').select('url').where('short_id', short_id)
+    if (result && result[0]) {
+        res.redirect(result[0].url)
+    } else {
+        res.send('Url not found')
+    }
+})
+app.listen(3000, () => {
+    console.log('Server is running on port 3000')
+});
+```
+
+## 串口技术
+
+### 串口介绍
+
+串口技术是一种用于在计算机和外部设备之间进行数据传输的通信技术。它通过串行传输方式将数据逐位地发送和接收。
+
+> 常见的串口设备有，扫描仪，打印机，传感器，控制器，采集器，电子秤等
+
+### SerialPort
+
+SerialPort 是一个流行的 Node.js 模块，用于在计算机中通过串口与外部设备进行通信。它提供了一组功能强大的 API，用于打开、读取、写入和关闭串口连接，并支持多种操作系统和串口设备。[SerialPort官网](https://link.juejin.cn?target=https%3A%2F%2Fserialport.io%2F)
+
+SerialPort 模块的主要功能包括：
+
+1. 打开串口连接：使用 SerialPort 模块，可以轻松打开串口连接，并指定串口名称、波特率、数据位、停止位、校验位等参数。
+2. 读取和写入数据：通过 SerialPort 模块，可以从串口读取数据流，并将数据流写入串口。可以使用事件处理程序或回调函数来处理读取和写入操作。
+3. 配置串口参数：SerialPort 支持配置串口的各种参数，如波特率、数据位、停止位、校验位等。可以根据需求进行定制。
+4. 控制流控制：SerialPort 允许在串口通信中应用硬件流控制或软件流控制，以控制数据的传输速率和流程。
+5. 事件处理：SerialPort 模块可以监听串口连接的各种事件，如打开、关闭、错误等，以便及时处理和响应。
+
+### 案例跟单片机通讯
+
+> 这里我使用51单片机
+
+需要安装的软件
+
+1. `Keil uVision5` 编写单片机代码
+2. `stcai-isp` 烧录单片机程序
+
+#### 单片机串口通讯编写
+
+```c
+#include <REGX51.H>
+#include <STDIO.h>
+sbit LED = P1^0; //
+void UART_Init() {
+  SCON = 0x50; //工作方式
+  PCON = 0x00; //32分频
+  TMOD = 0x20; //计数器工作方式
+  TH1 = 0xFD;
+  TL1 = 0xFD;
+  ES = 1; //接受中断
+  EA = 1; //打开总中断
+  TR1 = 1; //打开计数器
+}
+void main ()
+{
+  UART_Init(); //调用初始化函数
+	while(1);
+}
+
+void uart()interrupt 4 
+{
+ unsigned char date;
+	date = SBUF; //接受数据
+	if(date == '1'){
+	   LED = 0; //开灯
+	}else if(date == '0'){
+	   LED = 1; //关灯
+	 }
+	RI = 0;
+}
+```
+
+#### 烧录至单片机
+
+#### nodejs端编写
+
+安装 serialport
+
+```sh
+npm install serialport
+```
+
+代码编写
+
+```js
+import { SerialPort } from "serialport";
+const serialPort = new SerialPort({
+    path: 'COM4', //单片机串口
+    baudRate: 9600 //波特率
+})
+
+serialPort.on('data',()=>{
+    console.log('data') //监听单片机的消息
+})
+let flag = 1
+setInterval(()=>{
+    serialPort.write(flag + '') //跟单片机进行通讯 传值
+    flag = Number(!flag)
+    console.log(flag == 0 ? '开': '关') //进行开关的切换
+},2000)
+```
