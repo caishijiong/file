@@ -126,7 +126,7 @@ git rm --cached <filename>
 **提交仓库**
 
 ```git
-git commit -m "内容" filename
+git commit -m "标签：内容" filename
 ```
 
 可以将 `git add filename` 和 `git commit -m "message" filename` 合并成一条指令: `git commit -am "message"`
