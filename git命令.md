@@ -257,11 +257,11 @@ git commit -m "标签：内容" filename
 
 查看远程仓库：`git remote -v`
 
-添加远程仓库：`git remote add [name] [url]`
+添加远程仓库：`git remote add`
 
 删除远程仓库：`git remote rm [name]`
 
-修改远程仓库：`git remote set-url --push [name] [newUrl]`
+修改远程仓库：`git remote set-url --push [name] [newUrl]` `git remote set-url [name] [newUrl]`
 
 ### 3.拉取推送
 

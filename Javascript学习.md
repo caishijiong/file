@@ -43,7 +43,7 @@ obj.forEach(i => {
 
 **使用 `map` 和 `find`**
 
-```js
+```javascript
 const merged = obj.map(i =>{
     const matched = objSex.find(sexItem => sexItem.name === i.name);
     return {
@@ -54,6 +54,31 @@ const merged = obj.map(i =>{
 
 console.log(merged)
 ```
+
+```javascript
+const id = '1';
+const list = [
+  { id: 1, name: 'xi' },
+  { id: 2, name: 'na' },
+  { id: 3, name: 'naj' }
+];
+
+// 使用 find 和 == 进行宽松比较
+const foundItem = list.find(item => item.id == id);
+
+if (foundItem) {
+  console.log(`找到了! id: ${foundItem.id}, name: ${foundItem.name}`);
+  // 输出: 找到了! id: 1, name: xi
+} else {
+  console.log("未找到匹配项");
+}
+
+// 如果只需要获取 name
+const foundName = list.find(item => item.id == id)?.name;
+console.log(foundName); // 输出: xi
+```
+
+
 
 | 特性               |    `forEach`     |  `map`   |
 | :----------------- | :--------------: | :------: |
@@ -139,7 +164,7 @@ console.log(merged);
 
  **数组方法中的键值对操作**
 
-```js
+```javascript
 const users = [
     {name: '小明', age: 18},
     {name: '小李', age: 20}
@@ -159,6 +184,45 @@ const userMap = users.reduce((map, user) => {
     return map;
 },{});
 console.log(userMap); // {小明: 18, 小李: 20}
+```
+
+**当数组里面还有一层数组需要提取出来的方法**
+
+```javascript
+const data = [
+  { name: 1, list: [{ u: 1, n: 1 }] },
+  { name: 2, list: [{ u: 2, n: 2 }, { u: 22, n: 22 }] }
+];
+
+const result = data.flatMap(item => 
+  item.list.map(listItem => ({
+    name: item.name,
+    ...listItem // 使用扩展运算符将 listItem 的所有属性合并进来
+  }))
+);
+
+console.log(result);
+// 输出:
+// [
+//   { name: 1, u: 1, n: 1 },
+//   { name: 2, u: 2, n: 2 },
+//   { name: 2, u: 22, n: 22 }
+// ]
+//----------------------
+const data = [
+  { name: 1, list: [{ u: 1, n: 1 }] },
+  { name: 2, list: [{ u: 2, n: 2 }, { u: 22, n: 22 }] }
+];
+
+const result = data.reduce((acc, item) => {
+  const newItems = item.list.map(listItem => ({
+    name: item.name,
+    ...listItem
+  }));
+  return acc.concat(newItems);
+}, []);
+
+console.log(result);
 ```
 
 ## 响应式打开组件的方法
