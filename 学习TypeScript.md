@@ -974,3 +974,203 @@ console.log(foo('a')); // Value is a
 console.log(foo('d')); // This will cause a compile-time error
 ```
 
+### symbol类型
+
+```ts
+let sym1 = Symbol();
+let sym2 = Symbol("key");
+
+console.log(sym1); // Symbol()
+console.log(sym2); // Symbol(key)
+// Symbol()的值是唯一的
+console.log(sym1 === sym2); // false
+
+// 用作对象属性的键
+let obj = {
+    [sym1]: "value1",
+    [sym2]: "value2"
+};
+
+console.log(obj[sym1]); // value1
+console.log(obj[sym2]); // value2
+```
+
+```ts
+const sym1 = Symbol('567');
+const sym2 = Symbol("key");
+
+// for Symbol for全局symbol有没有注册过这个key 如果有直接拿来用 如果没有就注册一个
+console.log(Symbol.for('xiaoming') === Symbol.for('xiaoming')) // true
+console.log(Symbol('xiaoming') === Symbol('xiaoming')) // false
+
+const obj = {
+    [sym1]: "value1",
+    [sym2]: "value2",
+    age: 30,
+    name: "John"
+};
+
+// 1 for in 遍历 读不到Symbol
+for (const key in obj) {
+    console.log(key); // This will only log "age" and "name"
+}
+// 2 Object.keys 遍历 读不到Symbol
+Object.keys(obj)
+console.log(Object.keys(obj)); // This will only log ["age", "name"]
+// 3 getOwnPropertyNames 读不到Symbol
+console.log(Object.getOwnPropertyNames(obj)) // This will only log ["age", "name"]
+// 4 JSON.stringfy 
+console.log(JSON.stringify(obj)) // This will only log {"age":30,"name":"John"}
+// 5 Object.getOwnPropertySymbols 可以读到Symbol
+console.log(Object.getOwnPropertySymbols(obj)) // This will log [Symbol(567), Symbol(key)]
+// 6 Reflect.ownKeys
+console.log(Reflect.ownKeys(obj)) // This will log ["age", "name", Symbol(567), Symbol(key)]
+```
+
+### 迭代器|生成器
+
+```ts
+// 1.生成器函数
+
+function* generator() { 
+    yield Promise.resolve('sad'); //同步异步
+    yield 1;
+    yield 'hello';
+    yield 3;
+}
+
+const man = generator();
+// 后面的done是用来判断 迭代器是否迭代完成
+console.log(man.next()); // {value: Promise { 'sad' }, done: false}
+console.log(man.next()); // {value: 1, done: false}
+console.log(man.next()); // {value: hello, done: false}
+console.log(man.next()); // {value: 3, done: false}
+console.log(man.next()); // {value: undefined, done: true}
+```
+
+```ts
+// 3.set map
+let set: Set<number> = new Set([1, 1, 2, 2, 3, 3]); //天然去重 1 2 3
+console.log(set); // Set {1, 2, 3}
+
+let map: Map<any, any> = new Map(); // 键值对
+let Arr = [1, 2, 3]
+map.set(Arr, 'hello');
+console.log(map); // Map { [1, 2, 3] => 'hello' }   
+console.log(map.get(Arr)); // 'hello'
+
+// 2.迭代器
+const each = (value: any) => {
+    let It: any = value[Symbol.iterator]();
+    let next: any = {done: false};
+    while (!next.done) {
+        next = It.next();
+        if (!next.done) {
+            console.log(next.value);
+        }
+    }
+}
+each(set);
+// 5.迭代器的语法糖 for of
+// 6.for of 对象不能用
+// for (let item of set) {
+//     console.log(item);
+// }
+// 7.解构 底层原理是去调用 iterator 方法
+// 8.对象支持for of
+let obj = {
+    max: 5,
+    current: 0,
+    [Symbol.iterator]() {
+        return {
+            max: this.max,
+            current: this.current,
+            next() { 
+                if (this.current == this.max) {
+                    return {value: undefined, done: true};
+                }else{
+                   return {value: this.current++, done: false};
+                }
+            }
+        }
+    }
+}
+for (let value of obj) {
+    console.log(value);
+}
+
+let x1 = [ ...obj ];
+// console.log(x1); // [0, 1, 2, 3, 4]
+let x = { ...obj };
+console.log(x); // {max: 5, current: 0}
+```
+
+### 泛型
+
+我写了两个函数一个是数字类型的函数，另一个是字符串类型的函数,其实就是类型不同，实现的功能是一样的，这时候我们就可以使用泛型来优化
+
+```ts
+function xiaoman1(a: number, b: number):Array<number> {
+    return [a, b];
+}
+
+function str(a: string, b: string): Array<string> {
+    return [a, b];
+}
+```
+
+泛型优化
+
+语法为函数名字后面跟一个<参数名> 参数名可以随便写 例如我这儿写了T
+
+当我们使用这个函数的时候把参数的类型传进去就可以了 （也就是动态类型）
+
+```ts
+function xiaoman<T>(a: T, b: T): Array<T> {
+    return [a, b];
+}
+// number
+xiaoman(1, 2);
+// string
+xiaoman('1', '2');
+// boolean
+xiaoman(false, true);
+```
+
+#### 定义泛型接口
+
+声明接口的时候 在名字后面加一个<参数>,使用的时候传递类型
+
+```ts
+type A<T> = number | string | T;
+let a: A<undefined> = undefined;
+
+interface Data<T> { 
+    msg: T;
+}
+let data: Data<string> = {
+    msg: 'hello world'
+}
+function add<T,K>(a: T, b: K): Array<T | K> {
+    return [a, b];
+}
+add(1, '2');
+//------------------
+interface MyInter<T> {
+   (arg: T): T
+}
+ 
+function fn<T>(arg: T): T {
+   return arg
+}
+ 
+let result: MyInter<number> = fn
+ 
+result(123)
+```
+
+
+
+### tsconfig.json配置文件
+
+这个文件是由通过tsc --init 命令生成

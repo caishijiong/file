@@ -239,6 +239,21 @@ git commit -m "标签：内容" filename
 
 ## 连接Git Hub
 
+**处理本地发生更改的时候，需要先拉取远端后在进行更改合并**
+
+```bash
+# 暂存本地更改
+git stash
+
+# 拉取远程更新
+git pull origin main
+
+# 恢复本地更改
+git stash pop
+
+# 处理可能的冲突
+```
+
 ### 1.克隆远程仓库到本地
 
 指令：`git clone 远程地址`

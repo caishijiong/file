@@ -56,3 +56,79 @@ npm install sass -D
 npm install sass-loader -D
 ```
 
+
+
+# yarn包管理改成pnpm包管理
+
+### 1、全局安装pnpm
+
+```bash
+npm install -g pnpm
+pnpm -v # 查看版本，检测是否安装成功
+```
+
+### 2、清除现有依赖文件
+
+在项目根目录下删除原有的依赖文件：
+
+```bash
+# Windows PowerShell
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Force yarn.lock
+Remove-Item -Force package-lock.json
+
+# macOS / Linux
+# rm -rf node_modules yarn.lock package-lock.json
+```
+
+如果某个锁文件不存在，提示找不到文件可忽略。
+
+### 3、转换锁定文件
+
+使用 pnpm 提供的导入功能，从 yarn.lock 生成 pnpm-lock.yaml：
+
+```bash
+pnpm import
+```
+
+此命令会根据现有的 yarn.lock 文件生成对应的 pnpm-lock.yaml 文件。若项目没有 yarn.lock，可跳过此步骤。
+
+### 4、安装依赖
+
+```bash
+pnpm install
+```
+
+### 5、运行项目
+
+运行项目，检查是否有依赖相关的错误：
+
+```bash
+# Vue CLI 项目（通常是 vue create 创建的）
+pnpm run serve
+
+# Vite 项目
+# pnpm run dev
+```
+
+### 6、更新脚本命令
+
+一般不需要把 package.json 的 scripts 从 yarn 改为 pnpm。
+只需要把日常执行命令改为 pnpm，例如：
+
+```bash
+yarn add axios        -> pnpm add axios
+yarn add -D sass      -> pnpm add -D sass
+yarn remove axios     -> pnpm remove axios
+yarn run serve        -> pnpm run serve
+```
+
+
+
+## **注意事项**
+
+1. **幽灵依赖**：pnpm 使用严格的依赖管理，不会创建扁平化的 node_modules 结构，因此可能存在之前能访问但现在无法访问的"幽灵依赖"，需要手动添加。
+2. **Peer Dependencies**：pnpm 对 peer dependencies 的处理更严格，可能需要手动解决冲突。
+3. **老项目兼容**：如果是 Vue2 + element-ui 等老项目，出现模块解析异常时，可在 .npmrc 中尝试增加 `shamefully-hoist=true`。
+4. **CI/CD 配置**：更新持续集成配置，确保使用 pnpm 命令安装依赖。
+5. **团队同步**：通知团队成员迁移至 pnpm，并更新开发环境。
