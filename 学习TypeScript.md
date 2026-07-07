@@ -1169,8 +1169,554 @@ let result: MyInter<number> = fn
 result(123)
 ```
 
+```ts
+const axios = {
+    get<T>(url:string): Promise<T> {
+        return new Promise((resolve, reject) => {
+            let xhr:XMLHttpRequest = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.onreadystatechange = () => {
+                if(xhr.readyState === 4 && xhr.status === 200) {
+                    resolve(JSON.parse(xhr.responseText))
+                }
+            }
+            xhr.send(null);
+        })
+    }
+}
+interface Data { 
+    msg: string;
+    code: number;
+}
+
+axios.get<Data>('./data.json').then(res => { 
+    console.log(res);
+})
+```
+
+#### 使用keyof 约束对象
+
+```ts
+// 泛型约束
+// 在类型后跟一个extends关键字来实现泛型约束
+function add<T extends number>(a: T, b: T) {
+    return a + b;
+}
+
+add(1, 2);
+
+interface Len {
+    length: number;
+}
+
+function fn<T extends Len>(a: T) {
+    a.length;
+}
+
+fn('hello');
+fn([1, 2, 3]);
+fn(123); // Error: number类型没有length属性
+fn(true); // Error: boolean类型没有length属性
+```
+
+```ts
+// keyof
+let obj = {
+    name: 'xiaoming',
+    age: 18,
+}
+
+//
+type k = keyof typeof obj;
+function ob<T extends object, k extends keyof T>(obj: T, key: k) {
+    return obj[key];
+}
+
+ob(obj, 'name');
+//循环Data类型
+interface Data {
+    name: string;
+    age: number;
+    sex: string;
+}
+
+type Options<T extends object> = {
+    [key in keyof T]?: T[key];
+}
+
+type B = Options<Data>;
+```
+
 
 
 ### tsconfig.json配置文件
 
 这个文件是由通过tsc --init 命令生成
+
+```json
+"compilerOptions": {
+  "incremental": true, // TS编译器在第一次编译之后会生成一个存储编译信息的文件，第二次编译会在第一次的基础上进行增量编译，可以提高编译的速度
+  "tsBuildInfoFile": "./buildFile", // 增量编译文件的存储位置
+  "diagnostics": true, // 打印诊断信息 
+  "target": "ES5", // 目标语言的版本
+  "module": "CommonJS", // 生成代码的模板标准
+  "outFile": "./app.js", // 将多个相互依赖的文件生成一个文件，可以用在AMD模块中，即开启时应设置"module": "AMD",
+  "lib": ["DOM", "ES2015", "ScriptHost", "ES2019.Array"], // TS需要引用的库，即声明文件，es5 默认引用dom、es5、scripthost,如需要使用es的高级版本特性，通常都需要配置，如es8的数组新特性需要引入"ES2019.Array",
+  "allowJS": true, // 允许编译器编译JS，JSX文件
+  "checkJs": true, // 允许在JS文件中报错，通常与allowJS一起使用
+  "outDir": "./dist", // 指定输出目录
+  "rootDir": "./", // 指定输出文件目录(用于输出)，用于控制输出目录结构
+  "declaration": true, // 生成声明文件，开启后会自动生成声明文件
+  "declarationDir": "./file", // 指定生成声明文件存放目录
+  "emitDeclarationOnly": true, // 只生成声明文件，而不会生成js文件
+  "sourceMap": true, // 生成目标文件的sourceMap文件
+  "inlineSourceMap": true, // 生成目标文件的inline SourceMap，inline SourceMap会包含在生成的js文件中
+  "declarationMap": true, // 为声明文件生成sourceMap
+  "typeRoots": [], // 声明文件目录，默认时node_modules/@types
+  "types": [], // 加载的声明文件包
+  "removeComments":true, // 删除注释 
+  "noEmit": true, // 不输出文件,即编译后不会生成任何js文件
+  "noEmitOnError": true, // 发送错误时不输出任何文件
+  "noEmitHelpers": true, // 不生成helper函数，减小体积，需要额外安装，常配合importHelpers一起使用
+  "importHelpers": true, // 通过tslib引入helper函数，文件必须是模块
+  "downlevelIteration": true, // 降级遍历器实现，如果目标源是es3/5，那么遍历器会有降级的实现
+  "strict": true, // 开启所有严格的类型检查
+  "alwaysStrict": true, // 在代码中注入'use strict'
+  "noImplicitAny": true, // 不允许隐式的any类型
+  "strictNullChecks": true, // 不允许把null、undefined赋值给其他类型的变量
+  "strictFunctionTypes": true, // 不允许函数参数双向协变
+  "strictPropertyInitialization": true, // 类的实例属性必须初始化
+  "strictBindCallApply": true, // 严格的bind/call/apply检查
+  "noImplicitThis": true, // 不允许this有隐式的any类型
+  "noUnusedLocals": true, // 检查只声明、未使用的局部变量(只提示不报错)
+  "noUnusedParameters": true, // 检查未使用的函数参数(只提示不报错)
+  "noFallthroughCasesInSwitch": true, // 防止switch语句贯穿(即如果没有break语句后面不会执行)
+  "noImplicitReturns": true, //每个分支都会有返回值
+  "esModuleInterop": true, // 允许export=导出，由import from 导入
+  "allowUmdGlobalAccess": true, // 允许在模块中全局变量的方式访问umd模块
+  "moduleResolution": "node", // 模块解析策略，ts默认用node的解析策略，即相对的方式导入
+  "baseUrl": "./", // 解析非相对模块的基地址，默认是当前目录
+  "paths": { // 路径映射，相对于baseUrl
+    // 如使用jq时不想使用默认版本，而需要手动指定版本，可进行如下配置
+    "jquery": ["node_modules/jquery/dist/jquery.min.js"]
+  },
+  "rootDirs": ["src","out"], // 将多个目录放在一个虚拟目录下，用于运行时，即编译后引入文件的位置可能发生变化，这也设置可以虚拟src和out在同一个目录下，不用再去改变路径也不会报错
+  "listEmittedFiles": true, // 打印输出文件
+  "listFiles": true// 打印编译的文件(包括引用的声明文件)
+}
+ 
+// 指定一个匹配列表（属于自动指定该路径下的所有ts相关文件）
+"include": [
+   "src/**/*"
+],
+// 指定一个排除列表（include的反向操作）
+ "exclude": [
+   "demo.ts"
+],
+// 指定哪些文件使用该配置（属于手动一个个指定文件）
+ "files": [
+   "demo.ts"
+]
+```
+
+1.include
+指定编译文件默认是编译当前目录下所有的ts文件
+
+2.exclude
+指定排除的文件
+
+3.target
+指定编译js 的版本例如es5  es6
+
+4.allowJS
+是否允许编译js文件
+
+5.removeComments
+是否在编译过程中删除文件中的注释
+
+6.rootDir
+编译文件的目录
+
+7.outDir
+输出的目录
+
+8.sourceMap
+代码源文件
+
+9.strict
+严格模式
+
+10.module
+默认common.js  可选es6模式 amd  umd 等
+
+### 命名空间
+
+```ts
+// 这是test.ts
+export namespace Test1 {
+    export let B = 100;
+     export const add = (a: number, b: number) => {
+        return a + b;
+    }
+}
+```
+
+
+
+```ts
+// 1. 命名空间的用法 嵌套 抽离 导出 简化 合并
+// 2. 案例
+// namespace 所有变量及方法必须要导出才能访问
+import { Test1 } from './test';
+
+namespace Test {
+    // 变量 方法...
+    export const Time: number = 1000;
+    export const Name: string = 'xiaoming';
+    export const add = (a: number, b: number) => {
+        return a + b;
+    }
+
+    export const fn = <T>(arg: T): T => {
+        return arg;
+    }
+    fn(Time)
+
+    export namespace Test2 {
+        export const Time: number = 2000;
+        export const add = (a: number, b: number) => {
+            return a + b;
+        }
+
+    }
+    
+}
+namespace Test {
+    export let a = 100;
+}
+
+console.log(Test.fn(Test.Time));
+console.log(Test.add(1, 2));
+console.log(Test.Test2.add(1, 2));
+console.log(Test.a);
+
+console.log(Test1.B);
+
+//简化
+import a = Test1.add;
+console.log(a(1, 2));
+```
+
+```ts
+// 可以通过不同的命名空间写入相同的方法或者新增方法便于区分
+// 2. 案例
+// 跨端的项目 h5 Android ios 小程序等
+namespace ios {
+    export const pushNotification = (msg: string, type: number) => {
+        console.log('ios pushNotification');
+    }
+}
+
+namespace android {
+    export const pushNotification = (msg: string) => {
+        console.log('android pushNotification');
+    }
+    export const casllPhone = (phone: string) => {
+        console.log('android casllPhone', phone);
+    }
+}
+```
+
+### 模块解析
+
+#### 在es6模块化规范之前
+
+Commonjs - > Nodejs
+
+```js
+// 导入
+require("xxx");
+require("../xxx.js");
+// 导出
+exports.xxxxxx= function() {};
+module.exports = xxxxx;
+```
+
+
+AMD ->   requireJs
+
+```js
+// 定义
+define("module", ["dep1", "dep2"], function(d1, d2) {...});
+// 加载模块
+require(["module", "../app"], function(module, app) {...});
+```
+
+
+CMD ->  seaJs
+
+```js
+define(function(require, exports, module) {
+  var a = require('./a');
+  a.doSomething();
+
+  var b = require('./b');
+  b.doSomething();
+});
+
+```
+
+
+UMD ->  UMD是AMD和CommonJS的糅合
+
+```js
+(function (window, factory) {
+    // 检测是不是 Nodejs 环境
+	if (typeof module === 'object' && typeof module.exports === "objects") {
+        module.exports = factory();
+    } 
+	// 检测是不是 AMD 规范
+	else if (typeof define === 'function' && define.amd) {
+        define(factory);
+    } 
+	// 使用浏览器环境
+	else {
+        window.eventUtil = factory();
+    }
+})(this, function () {
+    //module ...
+});
+```
+
+es6模块化规范出来之后上面这些模块化规范就用的比较少了
+
+现在主要使用 import export 
+
+#### es6模块化规范用法
+
+1.默认导出 和 引入
+
+默认导出可以导出任意类 型，这儿举例导出一个对象，并且默认导出只能有一个
+
+引入的时候名字可以随便起
+
+```js
+//导出 test.ts
+export default {
+    a:1,
+}
+//引入 index.ts
+import test from "./test";
+console.log(test);
+```
+
+ 2.分别导出
+
+```ts
+export default {
+    a:1,
+}
+ 
+export function add<T extends number>(a: T, b: T) {
+    return a + b
+}
+ 
+export let xxx = 123
+ 
+ 
+//引入
+import obj,{xxx,add} from './test'
+```
+
+```ts
+// 解构导出 可以导出多个东西 test.ts
+function add<T extends number>(a: T, b: T) {
+    return a + b
+}
+
+let xxx = 123
+
+export { add, xxx }
+
+// index.ts
+import { add, xxx } from './test';
+
+console.log(xxx);
+console.log(add(1, 2));
+```
+
+3.重名问题 如果 导入的时候叫add但是已经有变量占用了可以用as重命名
+**使用 * 导入整个模块**
+
+```js
+import obj,{xxx as bbb,add} from './test'
+ 
+console.log(bbb)
+```
+
+4.import只能写在顶层，不能掺杂到逻辑里面，这时候就需要动态引入了
+
+```js
+if(true){
+    import('./test').then(res => {
+        console.log(res)
+    })
+}
+```
+
+### 声明文件d.ts
+
+#### 声明文件 declare 
+
+当使用第三方库 时，我们需要引用它的声明文件，才能获得对应的代码补全、接口提示等功能。
+没有声明文件时可用命令  `npm i --save-dev @type/库名`
+
+```ts
+declare var 声明全局变量
+declare function 声明全局方法
+declare class 声明全局类
+declare enum 声明全局枚举类型
+declare namespace 声明（含有子属性的）全局对象
+interface 和 type 声明全局类型
+/// <reference /> 三斜线指令
+```
+
+**例如我们有一个express 和 axios**
+
+**发现express 报错了，让我们去下载他的声明文件，npm install @types/node -D**
+
+**那为什么axios 没有报错，我们可以去node_modules 下面去找axios 的package json**
+
+**发现axios已经指定了声明文件所以没有报错可以直接用**
+
+**通过语法declare 暴露我们声明的axios 对象**
+
+**declare  const axios: AxiosStatic;**
+
+**如果有一些第三方包确实没有声明文件我们可以自己去定义**
+
+**名称.d.ts 创建一个文件去声明**
+
+#### 案例手写声明文件index.ts
+
+```ts
+import express from 'express'
+ 
+ 
+const app = express()
+ 
+const router = express.Router()
+ 
+app.use('/api', router)
+ 
+router.get('/list', (req, res) => {
+    res.json({
+        code: 200
+    })
+})
+ 
+app.listen(9001,()=>{
+    console.log(9001)
+})
+```
+
+express.d.ts
+
+```ts
+declare module 'express' {
+    interface Router {
+        get(path: string, cb: (req: any, res: any) => void): void
+    }
+    interface App {
+ 
+        use(path: string, router: any): void
+        listen(port: number, cb?: () => void): void
+    }
+    interface Express {
+        (): App
+        Router(): Router
+ 
+    }
+    const express: Express
+    export default express
+}
+```
+
+### Mixins混入
+
+#### 1.对象混入
+
+可以使用es6的Object.assign 合并多个对象
+
+此时 people 会被推断成一个交差类 型 Name & Age & sex;
+
+```ts
+interface Name {
+    name: string
+}
+interface Age {
+    age: number
+}
+interface Sex {
+    sex: number
+}
+ 
+let people1: Name = { name: "小满" }
+let people2: Age = { age: 20 }
+let people3: Sex = { sex: 1 }
+ 
+const people = Object.assign(people1,people2,people3)
+```
+
+#### 2.类的混入
+
+首先声明两个mixins类 （严格模式要关闭不然编译不过）
+
+```ts
+class A {
+    type: boolean = false;
+    changeType() {
+        this.type = !this.type
+    }
+}
+ 
+ 
+class B {
+    name: string = '张三';
+    getName(): string {
+        return this.name;
+    }
+}
+```
+
+下面创建一个类，结合了这两个mixins
+
+首先应该注意到的是，没使用extends而是使用implements。 把类当成了接口
+
+我们可以这么做来达到目的，为将要mixin进来的属性方法创建出占位属性。 这告诉编译器 这些成员在运行时是可用的。 这样就能使用mixin带来的便利，虽说需要提前定义一些占位属性
+
+```ts
+class C implements A,B{
+    type:boolean
+    changeType:()=>void;
+    name: string;
+    getName:()=> string
+}
+```
+
+最后，创建这个帮助函数，帮我们做混入操作。 它会遍历mixins上的所有属性，并复制到目标上去，把之前的占位属性替换成真正的实现代码
+
+Object.getOwnPropertyNames()可以获取对象自身的属性，除去他继承来的属性，
+对它所有的属性遍历，它是一个数组，遍历一下它所有的属性名
+
+```ts
+Mixins(C, [A, B])
+function Mixins(curCls: any, itemCls: any[]) {
+    itemCls.forEach(item => {
+        Object.getOwnPropertyNames(item.prototype).forEach(name => {
+            curCls.prototype[name] = item.prototype[name]
+        })
+    })
+}
+```
+
