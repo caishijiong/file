@@ -1651,6 +1651,7 @@ declare module 'express' {
 此时 people 会被推断成一个交差类 型 Name & Age & sex;
 
 ```ts
+// 1.对象混入 合并 A对象 B对象 合并成一个对象
 interface Name {
     name: string
 }
@@ -1660,7 +1661,17 @@ interface Age {
 interface Sex {
     sex: number
 }
- 
+
+let a: Age = {
+    age: 18
+}
+let b: Name = {
+    name: '张三'
+}
+// 1.扩展运算符 浅拷贝 返回新的类型
+let c = {...a, ...b};
+
+// 2.Object.assign 浅拷贝 交叉类型
 let people1: Name = { name: "小满" }
 let people2: Age = { age: 20 }
 let people3: Sex = { sex: 1 }
@@ -1718,5 +1729,426 @@ function Mixins(curCls: any, itemCls: any[]) {
         })
     })
 }
+```
+
+### 装饰器Decorator
+
+Decorator 装饰器是一项实验性特性，在未来的版本中可能会发生改变
+它们不仅增加了代码的可读性，清晰地表达了意图，而且提供一种方便的手段，增加或修改类 的功能若要启用实验性的装饰器特性，你必须在命令行或tsconfig.json里启用编译器选项
+
+```json
+ "experimentalDecorators": true,
+ "emitDecoratorMetadata": true,
+```
+
+**装饰器**
+
+*装饰器*是一种特殊类型的声明，它能够被附加到类声明，方法， 访问符，属性或参数上。
+
+```ts
+// 1、类装饰器 ClassDecorator 参数target 类构造函数
+// 2、属性装饰器 PropertyDecorator
+// 3、参数装饰器 ParameterDecorator
+// 4、方法装饰器 MethodDecorator PropertyDescriptor
+// 5、装饰器工厂
+// 6、import 'reflect-metadata'
+// 7、axios
+
+const Base:ClassDecorator = (target: any) => {
+    console.log(target);
+
+    // 1、添加属性
+    target.prototype.__baseUrl = 'http://localhost:3000'
+    // 2、添加方法
+    target.prototype.__request = function (url: string, method: string, data?: any) {
+        console.log(url, method, data);
+    }
+}
+
+@Base
+class Http {
+    // .....
+}
+
+const http = new Http() as any
+console.log(http.__baseUrl);
+http.__request('/user', 'GET', { id: 1 })
+
+// 第二种做法
+class Http {
+    // .....
+}
+
+const http = new Http() as any
+Base(Http)
+http.__request('/user', 'GET', { id: 1 })
+```
+
+#### 装饰器工厂
+
+其实也就是一个高阶函数 外层的函数接受值 里层的函数最终接受类的构造函数
+
+让ClassDecorator给到里面的函数，外层函数用来接收参数
+
+```ts
+const Base = (name: string) => {
+    const fn:ClassDecorator = (target: any) => {
+        // 1、添加属性
+        target.prototype.__baseUrl = name
+        // 2、添加方法
+        target.prototype.__request = function (url: string, method: string, data?: any) {
+            console.log(url, method, data);
+        }
+    }
+    return fn
+}
+
+@Base('as')
+class Http {
+    // .....
+}
+
+const http = new Http() as any
+console.log(http.__baseUrl);
+http.__request('/user', 'GET', { id: 1 })
+```
+
+#### 方法装饰器
+
+```
+
+const Get = (url: string) => {
+    const fn: MethodDecorator = (target, key, descriptor: PropertyDescriptor) => {
+        axios.get(url).then(res => {
+            descriptor.value(res.data)
+        })
+    }
+    return fn
+}
+
+const Post = (url: string) => {
+    const fn: MethodDecorator = (target, key, descriptor: PropertyDescriptor) => {
+        axios.post(url).then(res => {
+            descriptor.value(res.data)
+        })
+        
+    }
+    return fn
+}
+
+class Http {
+
+    @Get('https://www.baidu.com')
+    getList(data: any) {
+        console.log(data);
+    }
+
+    @Post('https://www.baidu.com')
+    create(data: any) {
+        console.log(data);
+    }
+}
+```
+
+#### 参数装饰器
+
+```
+// 参数装饰器比属性装饰器先执行 但是方法装饰器比属性装饰器先执行
+const Body = (name: string) => {
+    const fn: ParameterDecorator = (target, key, index: number) => {
+        console.log(target, key, index);
+    }
+    return fn
+}
+
+class Http {
+    getList(@Body('data') data: any) {
+        console.log(data);
+    }
+
+}
+```
+
+#### 属性装饰器
+
+```ts
+const met: PropertyDecorator = (target, key) => {
+    console.log(target, key);
+}
+
+class A {
+    @met
+    name: string
+    constructor() {
+        this.name = 'a'
+    }
+}
+const a = new A()
+console.log(a.name);
+```
+
+### webpack构建ts+vue3项目
+
+#### 构建目录
+
+```
+src/
+├── App.vue
+├── main.ts
+└── shim.d.ts
+index.html
+package.json
+tsconfig.json
+webpack.config.js├
+```
+
+#### 基础构建
+
+```shell
+npm install webpack webpack-cli -D
+npm install webpack-dev-server -D
+```
+
+tsconfig.json增加配置项include  ，告诉 TypeScript 编译器哪些文件或目录需要被包含在编译范围
+
+```
+"compilerOptions":{
+},
+"include": [
+    "src/**/*"
+]
+```
+
+package .json 添加打包命令和 启动服务的命令
+
+```json
+{
+  "scripts": {
+    "build": "webpack",
+    "dev": "webpack-dev-server"
+  }
+}
+```
+
+编写webpack.config.js 配置文件测试打包
+
+```js
+const { Configuration } = require('webpack')
+const path  = require('path')
+/**
+ * @type {Configuration}
+ */
+const config = {
+    mode:"development", //开发模式
+    entry:'./src/main.ts', //入口
+    output:{
+        path: path.resolve(__dirname, 'dist'), //出口目录
+        filename: 'main.js', //出口文件
+    }
+}
+ 
+module.exports = config
+```
+
+#### 支持TypeScript
+
+增加依赖
+
+```sh
+npm install ts-loader -D
+npm install typescript -D
+```
+
+```js
+const { Configuration } = require('webpack')
+const path = require('path')
+/** 
+ * @type {Configuration}
+ */
+const config = {
+    mode: 'development', //开发模式
+    entry:'./src/main.ts', //入口文件
+    output:{
+        path: path.resolve(__dirname, 'dist'), //输出目录
+        filename: 'main.js', //输出文件名
+    },
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: 'ts-loader', // 支持解析ts文件
+                exclude: /node_modules/, //排除node_modules目录
+            }
+        ]
+    }
+}
+
+module.exports = config
+```
+
+#### 支持vue
+
+安装依赖
+
+```sh
+npm install vue-loader -D
+npm install html-webpack-plugin -D
+npm install vue
+```
+
+main.ts引入Vue
+
+```ts
+import { createApp } from 'vue'
+import App from './App.vue'
+ 
+createApp(App).mount('#app')
+```
+
+在shim.d.ts添加，让ts识别.vue后缀
+
+```ts
+declare module "*.vue" {
+    import { DefineComponent } from "vue"
+    const component: DefineComponent<{}, {}, any>
+    export default component
+}
+```
+
+初始化index.html 模板
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="app"></div>
+</body>
+</html>
+```
+
+增加vue-loader 和 插件
+
+```js
+const { Configuration } = require('webpack')
+const path = require('path')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const { VueLoaderPlugin } = require('vue-loader')
+
+/** 
+ * @type {Configuration}
+ */
+const config = {
+    mode: 'development', //开发模式
+    entry:'./src/main.ts', //入口文件
+    output:{
+        path: path.resolve(__dirname, 'dist'), //输出目录
+        filename: 'main.js', //输出文件名
+    },
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './index.html', // 模板文件
+        }), // 生成HTML文件
+        new VueLoaderPlugin(), // 解析vue文件
+    ],
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: {
+                    loader: 'ts-loader',
+                    options: {
+                        appendTsSuffixTo: [/\.vue$/],
+                    }
+                }, // 支持解析ts文件   
+                exclude: /node_modules/, //排除node_modules目录
+            },
+            {
+                test: /\.vue$/,
+                use: 'vue-loader',
+            }
+        ]
+    }
+}
+
+module.exports = config
+```
+
+由于是Webpack项目，需要在tsconfig.json需要配置项
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler", //使用 bundler 模式
+    "verbatimModuleSyntax": true,
+    // ... 其他配置
+  }
+}
+```
+
+#### 支持css + less
+
+```sh
+npm install css-loader style-loader less less-loader -D
+```
+
+增加css-loader、style-loader、sless-loader和 插件
+
+```
+const { Configuration } = require('webpack')
+const { VueLoaderPlugin } = require('vue-loader')
+const HtmlWepackPlugin = require('html-webpack-plugin')
+const path = require('path')
+/**
+ * @type {Configuration}
+ */
+const config = {
+    mode: "development",
+    entry: './src/main.ts',
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'main.js',
+    },
+    stats: 'errors-only',
+    plugins: [
+        new VueLoaderPlugin(),
+        new HtmlWepackPlugin({
+            template: './index.html'
+        })
+    ],
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use:{
+                    loader: 'ts-loader',
+                    options:{
+                        appendTsSuffixTo: [/\.vue$/]
+                    }
+                }
+            },
+            {
+                test: /\.vue$/,
+                use: 'vue-loader'
+            },
+            {
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader'] //从右向左解析
+            },
+            {
+                test: /\.less$/,
+                use: ['style-loader', 'css-loader', 'less-loader']
+            }
+        ]
+    }
+}
+ 
+module.exports = config
 ```
 
