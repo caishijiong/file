@@ -2152,3 +2152,190 @@ const config = {
 module.exports = config
 ```
 
+#### 代码分包
+
+性能优化 默认把所有代码打包到一个js文件体积太大了我们可以进行代码分包减少体积
+
+```js
+const { Configuration } = require('webpack')
+const { VueLoaderPlugin } = require('vue-loader')
+const HtmlWepackPlugin = require('html-webpack-plugin')
+const path = require('path')
+/**
+ * @type {Configuration}
+ */
+const config = {
+    mode: "development",
+    entry: './src/main.ts',
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: '[chunkhash].js',
+        clean: true
+    },
+    stats: 'errors-only',
+    plugins: [
+        new VueLoaderPlugin(),
+        new HtmlWepackPlugin({
+            template: './index.html'
+        })
+    ],
+    optimization: {
+        splitChunks: {
+            cacheGroups: {
+                moment: {
+                    name: "moment",
+                    test: /[\\/]node_modules[\\/]moment[\\/]/,
+                    chunks: "all"
+                },
+                common:{
+                    name: "common",
+                    chunks: "all",
+                    minChunks: 2
+                }
+            }
+        }
+    },
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: {
+                    loader: 'ts-loader',
+                    options: {
+                        appendTsSuffixTo: [/\.vue$/]
+                    }
+                }
+            },
+            {
+                test: /\.vue$/,
+                use: 'vue-loader'
+            },
+            {
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader'] //从右向左解析
+            },
+            {
+                test: /\.less$/,
+                use: ['style-loader', 'css-loader', 'less-loader']
+            }
+        ]
+    }
+}
+ 
+module.exports = config
+```
+
+### 实战TS编写发布订阅模式
+
+发布订阅模式是一种常见的设计模式，在许多场景中都有应用。我们可能已经在使用中接触过发布订阅模式，比如使用 addEventListener 方法来监听 DOM 事件、Vue 的事件总线机制等。
+
+简单来说，发布订阅模式就像是你和大傻、二傻、三傻一起打篮球。大傻负责带球，二傻负责带水，三傻负责带球衣。只有当他们都准备完成后，才开始打球。
+首先 需要定义三个角色 发布者 订阅者 调度者
+
+```mermaid
+graph TD
+    A[发布者] -->|发布消息| B[调度中心]
+    C[注册] -->|注册服务| B
+    B -->|分发消息| D[订阅者]
+    B -->|分发消息| E[订阅者]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbb,stroke:#333,stroke-width:2px
+    style E fill:#fbb,stroke:#333,stroke-width:2px
+```
+
+**实际案例**
+在 JavaScript 中，我们可以使用 DOM 2 级事件的 addEventListener 方法来订阅和监听事件。
+在 Electron 中，使用 IpcMain 和 ipcRender 来实现主进程和渲染进程之间的事件通信。
+在 Webpack 中，使用 Hooks 机制来订阅和处理构建过程中的各个阶段。
+在 Vue 2 中，可以使用事件总线（Event Bus）机制来实现组件之间的通信。
+
+**具体代码**
+on订阅/监听
+
+emit 发布/注册
+
+once 只执行一次
+
+off解除绑定
+
+```ts
+interface EventFace {
+    on: (name: string, callback: Function) => void;
+    emit: (name: string, ...args: Array<any>) => void;
+    off: (name: string, fn: Function) => void;
+    once: (name: string, fn: Function) => void;
+  }
+  
+  interface List {
+    [key: string]: Array<Function>;
+  }
+  
+  class Dispatch implements EventFace {
+    list: List;
+  
+    constructor() {
+      this.list = {};
+    }
+  
+    // 订阅事件
+    on(name: string, callback: Function) {
+      const callbackList: Array<Function> = this.list[name] || [];
+      callbackList.push(callback);
+      this.list[name] = callbackList;
+    }
+  
+    // 发布事件
+    emit(name: string, ...args: Array<any>) {
+      let eventName = this.list[name];
+      if (eventName) {
+        eventName.forEach(fn => {
+          fn.apply(this, args);
+        });
+      } else {
+        console.error('该事件未监听');
+      }
+    }
+  
+    // 解除绑定
+    off(name: string, fn: Function) {
+      let eventName = this.list[name];
+      if (eventName && fn) {
+        let index = eventName.findIndex(fns => fns === fn);
+        eventName.splice(index, 1);
+      } else {
+        console.error('该事件未监听');
+      }
+    }
+  
+    // 一次性订阅
+    once(name: string, fn: Function) {
+      let decorator = (...args: Array<any>) => {
+        fn.apply(this, args);
+        this.off(name, decorator);
+      };
+      this.on(name, decorator);
+    }
+  }
+  
+  const o = new Dispatch();
+  
+  // 订阅事件 'abc'，输出参数和数字 1
+  o.on('abc', (...arg: Array<any>) => {
+    console.log(arg, 1);
+  });
+  
+  // 一次性订阅事件 'abc'，输出参数和字符串 'once'，只会触发一次
+  o.once('abc', (...arg: Array<any>) => {
+    console.log(arg, 'once');
+  });
+  
+  // 发布事件 'abc'，输出参数 1、true 和字符串 '小满'
+  o.emit('abc', 1, true, '小满');
+  
+  // 再次发布事件 'abc'，输出参数 2、true 和字符串 '小满'
+  o.emit('abc', 2, true, '小满');
+```
+
