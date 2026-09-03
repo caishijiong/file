@@ -2152,49 +2152,40 @@ const config = {
 module.exports = config
 ```
 
+处理时间的库
+
+```sh
+npm i moment
+```
+
 #### 代码分包
 
 性能优化 默认把所有代码打包到一个js文件体积太大了我们可以进行代码分包减少体积
 
 ```js
 const { Configuration } = require('webpack')
-const { VueLoaderPlugin } = require('vue-loader')
-const HtmlWepackPlugin = require('html-webpack-plugin')
 const path = require('path')
-/**
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const { VueLoaderPlugin } = require('vue-loader')
+
+/** 
  * @type {Configuration}
  */
 const config = {
-    mode: "development",
-    entry: './src/main.ts',
-    output: {
-        path: path.resolve(__dirname, 'dist'),
-        filename: '[chunkhash].js',
-        clean: true
+    mode: 'development', //开发模式
+    entry:'./src/main.ts', //入口文件
+    output:{
+        path: path.resolve(__dirname, 'dist'), //输出目录
+        filename: '[name].js',  // ← 关键：改为 [name]
+        clean: true, // 清理输出目录
+        // chunkFilename: '[name].[contenthash].js',  // ← 动态导入的文件名
     },
-    stats: 'errors-only',
     plugins: [
-        new VueLoaderPlugin(),
-        new HtmlWepackPlugin({
-            template: './index.html'
-        })
+        new HtmlWebpackPlugin({
+            template: './index.html', // 模板文件
+        }), // 生成HTML文件
+        new VueLoaderPlugin(), // 解析vue文件
     ],
-    optimization: {
-        splitChunks: {
-            cacheGroups: {
-                moment: {
-                    name: "moment",
-                    test: /[\\/]node_modules[\\/]moment[\\/]/,
-                    chunks: "all"
-                },
-                common:{
-                    name: "common",
-                    chunks: "all",
-                    minChunks: 2
-                }
-            }
-        }
-    },
     module: {
         rules: [
             {
@@ -2202,13 +2193,14 @@ const config = {
                 use: {
                     loader: 'ts-loader',
                     options: {
-                        appendTsSuffixTo: [/\.vue$/]
+                        appendTsSuffixTo: [/\.vue$/],
                     }
-                }
+                }, // 支持解析ts文件   
+                exclude: /node_modules/, //排除node_modules目录
             },
             {
                 test: /\.vue$/,
-                use: 'vue-loader'
+                use: 'vue-loader',
             },
             {
                 test: /\.css$/,
@@ -2219,9 +2211,108 @@ const config = {
                 use: ['style-loader', 'css-loader', 'less-loader']
             }
         ]
-    }
+    },
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+            cacheGroups: {
+                moment: {
+                    name: "moment",
+                    test: /[\\/]node_modules[\\/]moment[\\/]/,
+                    chunks: "all"
+                },
+                common:{
+                   	name: "common", // 公共模块名称
+                    chunks: "all", // 所有模块都提取到公共模块
+                    minChunks: 2 // 最小模块引用次数
+                }
+            }
+        }
+    },
 }
- 
+
+module.exports = config
+```
+
+#### 单独提取css
+
+```sh
+npm install mini-css-extract-plugin -D
+```
+
+webpack.config.js文件代码
+
+```js
+const { Configuration } = require('webpack')
+const path = require('path')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const { VueLoaderPlugin } = require('vue-loader')
+const CssExtractPlugin = require('mini-css-extract-plugin')
+
+/** 
+ * @type {Configuration}
+ */
+const config = {
+    mode: 'development', //开发模式
+    entry:'./src/main.ts', //入口文件
+    output:{
+        path: path.resolve(__dirname, 'dist'), //输出目录
+        filename: '[name].js',  // ← 关键：改为 [name]
+        clean: true, // 清理输出目录
+        // chunkFilename: '[name].[contenthash].js',  // ← 动态导入的文件名
+    },
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './index.html', // 模板文件
+        }), // 生成HTML文件
+        new VueLoaderPlugin(), // 解析vue文件
+        new CssExtractPlugin(), // 提取css文件
+    ],
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: {
+                    loader: 'ts-loader',
+                    options: {
+                        appendTsSuffixTo: [/\.vue$/],
+                    }
+                }, // 支持解析ts文件   
+                exclude: /node_modules/, //排除node_modules目录
+            },
+            {
+                test: /\.vue$/,
+                use: 'vue-loader',
+            },
+            {
+                test: /\.css$/,
+                use: [ CssExtractPlugin.loader, 'css-loader'] //从右向左解析
+            },
+            {
+                test: /\.less$/,
+                use: [ CssExtractPlugin.loader, 'css-loader', 'less-loader']
+            }
+        ]
+    },
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+            cacheGroups: {
+                moment: {
+                    name: "moment",
+                    test: /[\\/]node_modules[\\/]moment[\\/]/,
+                    chunks: "all"
+                },
+                common:{
+                    name: "common", // 公共模块名称
+                    chunks: "all", // 所有模块都提取到公共模块
+                    minChunks: 2 // 最小模块引用次数
+                }
+            }
+        }
+    },
+}
+
 module.exports = config
 ```
 
@@ -2251,6 +2342,26 @@ graph TD
 在 Electron 中，使用 IpcMain 和 ipcRender 来实现主进程和渲染进程之间的事件通信。
 在 Webpack 中，使用 Hooks 机制来订阅和处理构建过程中的各个阶段。
 在 Vue 2 中，可以使用事件总线（Event Bus）机制来实现组件之间的通信。
+
+```ts
+// 用法
+// 监听器
+const cb = () => {
+    console.log('触发了as事件')
+}
+document.addEventListener('as', cb, {
+    once: true // 只触发一次
+})
+
+document.removeEventListener('as', cb)
+
+const e = new Event('as') // 订阅中心
+
+document.dispatchEvent(e) // 触发事件
+document.dispatchEvent(e) // 触发事件
+document.dispatchEvent(e) // 触发事件
+document.dispatchEvent(e) // 触发事件
+```
 
 **具体代码**
 on订阅/监听
@@ -2337,5 +2448,439 @@ interface EventFace {
   
   // 再次发布事件 'abc'，输出参数 2、true 和字符串 '小满'
   o.emit('abc', 2, true, '小满');
+```
+
+理解订阅模式的思路
+
+```ts
+// 1. 什么是 发布订阅模式 他是设计模式的其中一种
+// 2. 面试经常问的问题 其次手写这个模式 他的思想被人们广泛使用的
+// 3. 有谁在使用呢 vue2 eventBus $emit派发 $on监听
+// 4. electron 也有一个事件总线 ipcRenderer ipcMain 通讯
+// 5. DOM2 addEventListener removeEventListener 事件绑定
+
+// 实现 once on emit off 订阅中心Map<事件的名称,[Function]订阅者集合>
+interface I{
+    events: Map<string, Function[]>
+    once: (event: string, callback: Function) => void // 触发一次订阅器
+    on: (event: string, callback: Function) => void // 订阅
+    emit: (event: string, ...args: any[]) => void // 派发
+    off: (event: string, callback: Function) => void // 删除订阅器
+}
+
+class Emitter implements I { 
+    events: Map<string, Function[]> = new Map()
+    constructor() {
+        this.events = new Map()
+    }
+
+    once(event: string, callback: Function) {
+        // 1.创建一个自定义函数 通过on触发 触发之后立刻通过off回收
+        const cb = (...args: any[]) => {
+            callback(...args)
+            this.off(event, cb)
+        }
+        this.on(event, cb)
+    }
+
+    on(event: string, callback: Function) {
+        // 证明事件名称是否存在
+        if (!this.events.has(event)) {
+            this.events.set(event, [])
+        }
+        const callbacks = this.events.get(event)!
+        callbacks.push(callback)
+    }
+    
+    emit(event: string, ...args: any[]) {
+        const callbacks = this.events.get(event)!
+        callbacks.forEach(fn => {
+            fn(...args)
+        })
+    }
+    
+    off(event: string, callback: Function) {
+        const callbacks = this.events.get(event)!
+        console.log(callbacks)
+        callbacks.splice(callbacks.indexOf(callback), 1)
+    } 
+}
+
+const bus = new Emitter()
+
+const fn = (b: boolean, n: number) => {
+    console.log(1, b, n)
+}
+
+// bus.on('message', fn)
+// bus.off('message', fn)
+bus.once('message', fn)
+
+bus.emit('message', false, 1)
+bus.emit('message', false, 1)
+bus.emit('message', false, 1)
+bus.emit('message', false, 1)
+```
+
+### weakMap，weakSet，set，map
+
+#### 1.set
+
+集合是由一组无序且唯一(即不能重复)的项组成的，可以想象成集合是一个既没有重复元素，也没有顺序概念的数组
+
+属性      size：返回字典所包含的元素个数
+
+操作方法
+
+add(value)：添加某个值，返回 Set 结构本身。
+
+delete(value)：删除某个值，返回一个布尔值，表示删除是否成功。
+
+has(value)：返回一个布尔值，表示该值是否为 Set 的成员。
+
+clear()：清除所有成员，无返回值。
+
+size: 返回set数据结构的数据长度
+
+```ts
+let set: Set<number> = new Set([1, 2, 3, 4, 4, 4, 4, 4, 4, 5]) //天然去重 引用类型除外
+
+set.add(7)
+console.log(set)
+
+set.has(7)
+console.log(set.has(7))
+
+set.delete(5)
+console.log(set)
+
+set.size //4
+console.log(set.size)
+```
+
+去重
+
+```ts
+let arr = [...new Set([1,1,1,2,2,3,4,5,5,5,5])]
+ 
+console.log(arr); //[ 1, 2, 3, 4, 5 ]
+```
+
+#### 2.Map
+
+它类似于对象，也是键值对的集合，但是“键”的范围不限于字符串，各种类型的值（包括对象）都可以当作键，是一种更完善的 Hash 结构实现。如果你需要“键值对”的数据结构 ，Map 比 Object 更合适
+
+```ts
+// map的键可以是任意类型 包括对象 引用类型
+let obj = { name: '张三' }
+let map: Map<object, Function> = new Map()
+
+map.set(obj, () => 123)
+console.log(map)
+
+map.get(obj)
+console.log(map)
+
+map.has(obj)
+console.log(map.has(obj))
+
+map.delete(obj)
+console.log(map)
+
+map.size
+console.log(map.size)
+```
+
+操作方法同set
+
+#### 3.WeakSet 和 WeakMap
+
+Weak 在英语的意思就是弱的意思，weakSet 和 weakMap 的键都是弱引用，不会被计入垃圾回收，我们来演示一下。
+
+首先obj引用了这个对象 + 1，aahph也引用了 + 1，wmap也引用了，但是不会  + 1，应为他是弱引用，不会计入垃圾回收，因此 obj 和 aahph 释放了该引用 weakMap 也会随着消失的，但是有个问题你会发现控制台能输出，值是取不到的，应为V8的GC回收是需要一定时间的，你可以延长到500ms看一看，并且为了避免这个问题不允许读取键值，也不允许遍历，同理weakSet 也一样
+
+```ts
+// weakmap weakset 弱引用 弱项 不会被计入垃圾回收机制
+// weakmap map 区别 weakmap的键只能是对象 引用类型
+// weakset的项只能是对象 引用类型
+let obj: any = { name: '张三' } //1
+let aahph: any = obj //2
+let wmap: WeakMap<object, any> = new WeakMap()
+wmap.set(aahph, 123)
+// wmap.set(obj, '爱安徽潘慧') //2 他的键是弱引用不会计数的
+console.log(wmap.get(obj))
+
+obj = null // -1
+aahph = null;//-1
+//v8 GC 不稳定 最少200ms
+
+setTimeout(() => {
+    console.log(wmap.get(obj))
+}, 500)
+```
+
+### TS进阶用法proxy & Reflect
+
+学习proxy对象 代理
+
+Proxy 对象用于创建一个对象的代理，从而实现基本操作的拦截和自定义（如属性查找、赋值、枚举、函数调用等）
+
+target
+
+要使用 Proxy 包装的目标对象（可以是任何类 型的对象，包括原生数组，函数，甚至另一个代理）。
+
+handler
+
+一个通常以函数作为属性的对象，各属性中的函数分别定义了在执行各种操作时代理 p 的行为。
+
+handler.get() 本次使用的get
+
+属性读取操作的捕捉器。
+
+handler.set() 本次使用的set
+
+属性设置操作的捕捉器。
+
+**Reflect**
+与大多数全局对象不同Reflect并非一个构造函数，所以不能通过new运算符对其进行调用，或者将Reflect对象作为一个函数来调用。Reflect的所有属性和方法都是静态的（就像Math对象）
+
+**Reflect.get(target, name, receiver)** 
+Reflect.get方法查找并返回target对象的name属性，如果没有该属性返回undefined
+
+**Reflect.set(target, name,value, receiver)** 
+Reflect.set方法设置target对象的name属性等于value。
+
+```typescript
+//proxy 代理 13个方法
+//Reflect 反射 13个方法
+//mobx observer 观察者
+type Person = {
+    name: string,
+    age: number,
+    text: string
+}
+// proxy 支持 对象 数组 函数 get set方法
+const proxy = (Object: any, key: any) => {
+    return new Proxy(Object, {
+        get(target, prop, receiver) {
+            console.log(`get key == ${key}`);
+            return Reflect.get(target, prop, receiver);
+        },
+        set(target, prop, value, receiver) {
+            console.log(`set key == ${key}`);
+            return Reflect.set(target, prop, value, receiver);
+        }
+    })
+}
+
+
+const logAccess = (object: Person, key: 'name' | 'age' | 'text') => {
+    return proxy(object, key)
+}
+
+let man: Person = logAccess({
+    name: "张三",
+    age: 20,
+    text: "法外之言"
+}, 'text')
+
+man.age = 30
+
+console.log(man);
+```
+
+使用泛型+keyof优化
+
+```typescript
+type Person = {
+    name: string,
+    age: number,
+    text: string
+}
+// proxy 支持 对象 数组 函数 get set方法
+const proxy = (Object: any, key: any) => {
+    return new Proxy(Object, {
+        get(target, prop, receiver) {
+            console.log(`get key == ${key}`);
+            return Reflect.get(target, prop, receiver);
+        },
+        set(target, prop, value, receiver) {
+            console.log(`set key == ${key}`);
+            return Reflect.set(target, prop, value, receiver);
+        }
+    })
+}
+
+//区别
+const logAccess = (object: Person, key: 'name' | 'age' | 'text') => {
+    return proxy(object, key)
+}
+const logAccess2 = <T>(object: T, key: keyof T): T => {
+    return proxy(object, key)
+}
+
+let man: Person = logAccess({
+    name: "张三",
+    age: 20,
+    text: "法外之言"
+}, 'text')
+
+let man2 = logAccess2({
+    id: 1001,
+    name: "张三",
+    text: "法外之言"
+}, 'name')
+
+man.age = 30
+man2.name = "李四"
+
+console.log(man);
+console.log(man2);
+```
+
+**案例简单实现mobx观察者模式**
+
+```ts
+const list: Set<Function> = new Set()
+
+const autorun = (cb: Function) => {
+    if (!list.has(cb)) {
+        list.add(cb)
+    }
+}
+
+const observable = <T extends object>(params: T) => {
+    return new Proxy(params, {
+        get(target, key, receiver) {
+            return Reflect.get(target, key, receiver);
+        },
+        set(target, key, value, receiver) {
+            const result = Reflect.set(target, key, value, receiver);
+            list.forEach(fn => fn())
+            return result
+        }
+    })
+}
+
+const person = observable({ name: "张三", attr: "威猛先生" })
+// 值发生了改变就会触发这个方法
+autorun(() => {
+    console.log('我变化了');
+})
+
+person.attr = '威猛个捶捶'
+// person.name = '威猛个打人'
+
+```
+
+### 类型守卫
+
+1、typeof类型收缩 | 类型收窄
+
+typeof 是有缺陷的 比如说 数组 对象 函数 null 它都是返回object
+
+```ts
+const isString = (str: any) => typeof str === 'string'
+```
+
+2、instanceof
+
+```ts
+const isArr = (arr: any) => arr instanceof Array
+```
+
+**typeof 和 instanceof 区别**
+typeof 和 instanceof 是 TypeScript 中用于类型检查的两个不同的操作符，它们有不同的作用和使用场景。
+
+```js
+const str = "Hello";
+console.log(typeof str); // 输出: "string"
+
+const num = 42;
+console.log(typeof num); // 输出: "number"
+
+const bool = true;
+console.log(typeof bool); // 输出: "boolean"
+```
+
+注意事项：typeof 只能返回有限的字符串类型，包括 “string”、“number”、“boolean”、“symbol”、“undefined” 和 “object”。对于函数、数组 、null 等类型，typeof 也会返回 “object”。因此，typeof 对于复杂类型和自定义类型的判断是有限的。
+
+instanceof
+作用：instanceof 操作符用于检查一个对象是否是某个类的实例。它通过检查对象的原型链来确定对象是否由指定的类创建。
+
+```js
+class Person {
+  name: string;
+  constructor(name: string) {
+    this.name = name;
+  }
+}
+
+const person = new Person("Alice");
+console.log(person instanceof Person); // 输出: true
+
+const obj = {};
+console.log(obj instanceof Person); // 输出: false
+```
+
+**自定义守卫**
+
+```js
+// 2. 类型谓词 | 自定义守卫
+// 实现一个函数， 该函数可以传入任何类型
+// 但是如果是object 就会检查里面的属性，如果里面的属性是number就取两位
+// 如果是string就去除左右空格
+// 如果是boolean就取反
+// 如果是函数就执行
+// 1.发现没有代码提示 原因是any类型 没有属性和方法
+// 自定义守卫 他只能接受布尔值
+// 语法规则 参数 is 类型
+// 这个函数如果返回true那么这个参数就是类型为该类型
+// 2.properties of undefined (reading 'a')
+// nodejs环境this指向undefined
+// 浏览器环境this指向window
+// js基础知识 如果函数独立调用，this指向window
+
+// 检查是否是对象 Object.prototype === ({})
+const isObj = (arg: any) => ({}).toString.call(arg) === '[object Object]'
+const isNum = (num: any):num is number => typeof num === 'number' //如果返回true 那么num就是类型为number
+const isStr = (str: any):str is string => typeof str === 'string'
+const isBool = (bool: any):bool is boolean => typeof bool === 'boolean'
+const isFn = (fn: any):fn is Function => typeof fn === 'function'
+
+const fn = (data: any) => {
+    if (isObj(data)) {
+        let val;
+        // 遍历属性不能用for in 因为for in 会遍历原型链上的属性
+        Object.keys(data).forEach((key) => {
+            val = data[key]
+            if (isNum(val)) {
+                data[key] = val.toFixed(2)
+            }
+            if (isStr(val)) {
+                data[key] = val.trim()
+            }
+            if (isBool(val)) {
+                data[key] = !val
+            }
+            if (isFn(val)) {
+                val
+            }
+        })
+        return data
+    }
+}
+
+let obj = {
+    a: 10.33322,
+    b: ' 100',
+    c: true,
+    d: function () {
+        console.log('hello world')
+        return this.a;
+    }
+}
+fn(obj)
+console.log(obj)
 ```
 
